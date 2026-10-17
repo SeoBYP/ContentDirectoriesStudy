@@ -10,7 +10,7 @@ namespace ContentsDirectories
         {
             var parameters = new BuildContentDirectoryParameters
             {
-                outputPath = "Builds/ContentPack",
+                outputPath = "Builds/ContentDirectories/ContentPack",
                 rootAssetPaths = new[]
                 {
                     "Assets/ContentPacks/ContentPackRootAsset.asset"

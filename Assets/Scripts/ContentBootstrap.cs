@@ -167,8 +167,9 @@ public class ContentBootstrap : MonoBehaviour
         for (int i = 0; i <= 3; i++)
         {
             // LogFrames의 로그 줄을 두 핸들 상태가 다 보이게 수정
+            string second = m_Second != null ? m_Second.Status.ToString() : "-";
             Debug.Log(
-                $"[{label} +{i}프레임] 콘텐츠 {CountContentMats()}, 원본 {m_Root.bonusPrefab.Status}, 두번째 {m_Second.Status}");
+                $"[{label} +{i}프레임] 콘텐츠 {CountContentMats()}, 원본 {m_Root.bonusPrefab.Status}, 두번째 {second}");
             yield return null;
         }
     }

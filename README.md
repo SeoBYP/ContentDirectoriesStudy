@@ -33,19 +33,31 @@ Unity 6.6에서 AssetBundle을 대체하려고 도입된 **Content Directories**
 - **무엇인가**: 게임 데이터를 Player 밖의 폴더로 빌드하고, 실행 중에 **에셋 단위**로 로드·해제하는 엔진 내장 시스템. AssetBundle이 번들 하나에 묶어 두었던 "정리 / 파일 / 로드·해제" 단위를 **Root / 디렉터리 / `Loadable`** 로 분리했다.
 - **빌드**: Root에서 GUID 참조를 재귀적으로 따라가 에셋을 모으고, 에셋 하나를 해시 이름의 파일 하나로 저장한다. 같은 빌드 안에서는 자동으로 중복이 제거된다. 변경 없는 재빌드는 64.9초 → 8.9초(실측).
 - **런타임**: 등록하면 Root와 실선 의존성만 올라오고(Direct 6.93 KB / Total 2.85 MB), 점선(`Loadable`, `LoadableSceneId`)은 필요할 때 로드한다. 해제는 **핸들 단위 참조 카운트**이고 마지막 참조가 사라진 **1프레임 뒤** 언로드된다(에디터·Player 동일, 실측).
+- **파일 구조**: AssetBundle과 같은 직렬화 포맷(직렬화 파일 + `.resS`)이지만 번들로 묶지 않고 에셋마다 낱개 파일로 둔다. "무엇을 열지"는 json 매니페스트(파일 → 파일 실선, 해시 파일 이름), "연 파일의 내용과 포인터 연결"은 `.cf`가 담당한다(실측).
 - **가장 큰 한계**: 로컬 전용(원격 배포·패치 없음), 빌드끼리 중복 제거 불가, 그리고 **`Instantiate`한 인스턴스는 참조로 세지 않아서** 사용 중에 해제하면 인스턴스가 경고 없이 화면에서 사라진다(실측).
+- **결론**: 로컬 콘텐츠에 한해서는 AssetBundle의 빌드 내 중복, 번들 단위 과보유, 수동 의존 관리 문제를 구조적으로 해결했다. 원격 배포가 필요하면 여전히 AssetBundle(Addressables 원격 그룹)이 필요하다.
 
 ---
 
 ## 2. Content Directories란
 
-```
-[Player 빌드]  코드 + 시작 씬(SampleScene)
-     │ 실행 중 RegisterContentDirectory(".../ContentPack")
-     ▼
-[콘텐츠 디렉터리]  .cf, .resS, 매니페스트 json, BuildManifestHash.txt
-   에디터: Builds/ContentDirectories/ContentPack/
-   Player: <Product>_Data/StreamingAssets/ContentPack/
+```mermaid
+flowchart TB
+  subgraph EDITOR["에디터: 빌드 시점"]
+    RA["Root Asset<br/>ContentPackRootAsset.asset"] --> CB["① 콘텐츠 빌드<br/>BuildPipeline.BuildContentDirectory"]
+    CB --> OUT["Builds/ContentDirectories/ContentPack/<br/>.cf · .resS · 매니페스트 json · BuildManifestHash.txt"]
+    CB --> HIST["Library/BuildHistory/빌드ID/<br/>ScriptsOnlyCache.yaml + 분석 리포트"]
+    PB["② Player 빌드<br/>ContentDirectoryDeployment.PrepareForBuild"]
+    OUT -- "AddAdditionalPathToStreamingAssets<br/>임포트 없이 복사" --> PB
+    HIST -- "AddPreviousBuildReportDirectory<br/>콘텐츠 전용 타입 스트리핑 방지" --> PB
+  end
+  subgraph PLAYER["Player: 실행 시점"]
+    EXE["코드 + 시작 씬<br/>SampleScene"]
+    SA["StreamingAssets/ContentPack/<br/>콘텐츠 디렉터리"]
+    EXE -- "RegisterContentDirectory" --> SA
+  end
+  PB --> EXE
+  PB --> SA
 ```
 
 | 구분 | 내용 |
@@ -77,6 +89,30 @@ public class ContentPackRootAsset : ScriptableObject
 | `Loadable<T>` (점선) | 포함 | `Load()` 해야 로드, `Release()`로 해제 |
 | `LoadableSceneId` (점선) | 포함 | `SceneManager.LoadSceneAsync`로 로드 |
 
+이 프로젝트의 실제 참조 그래프입니다. 초록색은 **등록 시점에 로드되는 범위**(Direct 6.93 KB)이고, 나머지는 점선을 넘어갈 때만 로드됩니다.
+
+```mermaid
+flowchart TD
+  ROOT["ContentPackRootAsset<br/>Root"]
+  META["ContentPackMetadata"]
+  CUBE["Cube.prefab"]
+  SCENE["InDoor.unity"]
+  LITMAT["Lit.mat"]
+  MATS["씬 머티리얼 6개<br/>White · Gold · Ground · Black · Metal_Black · Emissive"]
+  SHADER["Lit.shader<br/>파일 1개를 공유"]
+  FB["FallbackError.shader<br/>FallbackShader.shader"]
+  ROOT -- "일반 참조: 실선" --> META
+  ROOT -. "Loadable: 점선" .-> CUBE
+  ROOT -. "LoadableSceneId: 점선" .-> SCENE
+  CUBE --> LITMAT
+  SCENE --> MATS
+  LITMAT --> SHADER
+  MATS --> SHADER
+  SHADER --> FB
+  classDef reg fill:#d7f5e3,stroke:#1d9e75,color:#04342c
+  class ROOT,META reg
+```
+
 **빌드는 실선과 점선을 전부 따라가고, 런타임 로드는 점선에서 멈춥니다.** Root 설계는 곧 "어디에 점선을 두어 로딩을 끊을지" 정하는 일이며, 원칙은 **수명이 같은 것끼리는 실선, 수명이 다른 경계에는 점선**입니다. `Loadable<T>`는 Root뿐 아니라 MonoBehaviour 필드에도 둘 수 있습니다(문서). 예: 로비 씬의 컨트롤러가 인벤토리 UI 프리팹을 `Loadable`로 들고 있다가 열 때만 로드.
 
 ### 3.3 참조는 무엇으로 찾나: GUID + fileID
@@ -100,7 +136,30 @@ bonusLevel:
 | Root | **목차(찾는 방법)** 단위 | `GetRootAssets<T>()`로 묶음별 조회 | 메모리 이득 없음(등록 시 모든 Root와 실선이 로드) |
 | 디렉터리 | **빌드·배포·등록** 단위 | 따로 빌드, 동봉 여부, Register/Unregister | 디렉터리끼리 에셋 중복 |
 
+```mermaid
+flowchart LR
+  subgraph ONE["한 빌드에 Root 2개 = 결과 폴더 1개"]
+    R1["LobbyRoot"] --> S1["Lit.shader<br/>1벌만 저장"]
+    R2["BattleRoot"] --> S1
+  end
+  subgraph TWO["디렉터리 2개 = 빌드 2번"]
+    M1["MainRoot"] --> S2["Lit.shader<br/>사본 1"]
+    D1["DLC1Root"] --> S3["Lit.shader<br/>사본 2"]
+  end
+```
+
 한 빌드에 Root가 여러 개면 방문 목록을 공유해서 중복이 없고, 디렉터리를 나누면 각자 담아서 중복됩니다. 문서는 "대부분 Root 하나로 충분하고, 선택 설치 콘텐츠 팩 같은 경우에만 늘려라"고 권합니다. 판단 기준은 **"설치·배포 단위로 붙였다 떼야 하나? → 디렉터리 분리, 아니면 한 디렉터리 + `Loadable`"** 입니다.
+
+```mermaid
+flowchart TD
+  Q1{"설치·배포 단위로<br/>붙였다 떼야 하나?"}
+  Q1 -- "예" --> DIR["디렉터리 분리<br/>DLC · 언어 팩<br/>빌드 간 중복 감수"]
+  Q1 -- "아니오" --> MAIN["Main 디렉터리"]
+  MAIN --> Q2{"항상 필요하고<br/>가벼운가?"}
+  Q2 -- "예" --> SOLID["실선: 일반 참조"]
+  Q2 -- "아니오" --> DASH["점선: Loadable / LoadableSceneId"]
+  MAIN -. "목록이 너무 커지면" .-> ROOTS["Root 분리<br/>정리용, 메모리 이득 없음"]
+```
 
 ---
 
@@ -134,6 +193,16 @@ Collect(asset):
 
 파일 이름이 **내용 해시**라서 내용이 같으면 이름도 같고, 재빌드 때 다시 쓰지 않습니다. 콘텐츠가 쓰는 셰이더(`Lit.shader`)도 콘텐츠 빌드 안에 직접 들어갑니다.
 
+**`.cf`와 `.resS`의 관계 (실측)**
+- `.cf`는 에셋 하나의 **직렬화 데이터 전체**입니다. 셰이더(897 KB), 씬(367 KB), 머티리얼, 프리팹 등 대부분의 에셋은 `.cf` 하나로 끝납니다.
+- 텍스처·메시처럼 GPU로 보낼 큰 데이터가 있는 오브젝트만 **설명 정보는 `.cf`, 원시 데이터는 `.resS`** 로 나뉩니다(오디오·비디오는 `.resource`, 문서). `.cf` 안에 `cah:/<resS 해시>` 문자열로 위치가 적혀 있습니다.
+- 매핑 결과: `ReflectionProbe-0.exr`의 `.cf`(2,568 B) → `.resS` 1개(131,232 B), `InDoor.unity`의 `.cf` → `.resS` 4개. `.resS` 5개는 각각 정확히 한 번씩 참조되고, 나머지 16개 `.cf`는 `.resS`를 쓰지 않습니다. 즉 **큰 데이터를 가진 오브젝트 하나 = `.resS` 하나**입니다.
+- 씬의 `.resS` 4개는 `Combined Mesh (root: scene)` ~ `… 4`, 즉 **정적 배칭으로 합쳐진 메시**입니다. 소스에서는 `UnityMaterialBall.fbx`를 참조하지만 빌드 때 합친 메시가 씬 소유로 만들어져서, FBX가 독립 파일로 나오지 않고 메시 크기가 씬으로 집계되었습니다.
+- 이 "직렬화 파일 + resS" 구성은 AssetBundle 내부(`CAB-<hash>` + `CAB-<hash>.resS`)나 Player 데이터(`globalgamemanagers.assets.resS`)와 같은 계열입니다. 차이는 **포장 단위**(번들이라는 아카이브에 묶느냐, 에셋마다 낱개 파일로 두느냐)입니다. 파일 수가 부담되면 `BuildContentOptions.UseArchive`나 `compression`으로 `content0.archive` 하나로 묶을 수 있습니다(문서, 미실측).
+
+**파일 4번: 스크립트 이름표(MonoScript) 모음 (실측)**
+ScriptableObject와 MonoBehaviour 데이터는 `m_Script: {fileID: 11500000, guid: …}`로 자기 클래스를 가리키고, 그 대상이 MonoScript(클래스 이름, 네임스페이스, 어셈블리 정보)입니다. **코드 본체가 아니라 이름표**이며 코드는 항상 Player의 DLL에 있습니다. 파일 4번에는 Root·메타데이터 클래스, InDoor의 카메라(`FreeCamera`, `UniversalAdditionalCameraData`), 조명(`UniversalAdditionalLightData`), APV(`ProbeVolume`), 볼륨(`Volume`, `VolumeProfile`, 효과 5종)의 이름표가 모여 있고, 이 집합은 `ScriptsOnlyCache.yaml`의 `usedScripts`와 같습니다. 거의 모든 데이터가 실선으로 참조하는 작은 정보라 한 파일에 모아 처음에 열어 두는 것으로 보입니다(추정). 이름표에 해당하는 클래스가 Player에 없으면(새 클래스, 스트리핑) 데이터를 객체로 만들 수 없습니다.
+
 ### 4.3 `ContentLayout.json`과 런타임 매니페스트 (실측)
 `Library/BuildHistory/<빌드ID>/ContentLayout.json`의 파일별 필드:
 
@@ -151,6 +220,66 @@ Collect(asset):
    LoadableSceneDependencies:  [Assets/Scenes/InDoor.unity]
 ```
 런타임 매니페스트에는 파일별로 `Index, ID, IsBuiltIn, SerializedFileDependencies, ContentHash`만 있습니다. **런타임에는 실선만 필요**하고, 점선은 오브젝트 안의 `Loadable` 값과 매니페스트의 `Loadables` 표(`ObjectIdHash → 파일 번호 + Identifier`)로 찾습니다. 에디터의 `fileID`는 빌드 후 런타임용 `Identifier`로 다시 매겨집니다(`645800571622001937` → `7048807285321821040`).
+
+**런타임 매니페스트 구조**
+| 섹션 | 역할 |
+|---|---|
+| `RootAssets` | 등록 시 자동 로드할 Root. `GetRootAssets<T>()`의 출처 |
+| `Loadables` | `ObjectIdHash` → 파일 번호 + 파일 안 `Identifier` |
+| `LoadableScenes` | 씬 GUID → 파일 번호 (+ 디버깅용 `Path`) |
+| `SerializedFiles` | 파일 번호 → 실선 목록 + 실제 파일 이름(`ContentHash`). `ID`(`<GUID>.cfid`)는 에셋이 같으면 빌드가 바뀌어도 같고, `ContentHash`는 내용이 바뀌면 바뀜 |
+| `IsBuiltIn: true` (0번) | `Library/unity default resources`. Player에 이미 있는 엔진 내장 리소스라 콘텐츠에 복사되지 않음(Cube 기본 메시) |
+| `BuiltWithTypeTrees` | 직렬화 파일에 필드 구성 정보(타입 트리)를 포함했다는 표시 |
+
+`bonusPrefab.Load()` 흐름: `ObjectIdHash 19311a99…` → `Loadables`에서 파일 7 → `SerializedFiles[7]`의 `ContentHash`로 `c4c280b6….cf`를 열고, 실선 `[0, 18]` → 18번의 `[3]` … 순으로 엶 → 파일 7 안의 `Identifier 7048…` 오브젝트를 반환. `.resS`는 매니페스트에 없고 `.cf` 안의 `cah:/`로 찾습니다.
+
+```mermaid
+sequenceDiagram
+  participant C as 게임 코드
+  participant L as Loadable 핸들
+  participant M as 매니페스트 json
+  participant F as .cf / .resS 파일
+  C->>L: bonusPrefab.Load()
+  L->>M: ObjectIdHash 19311a99… 조회
+  M-->>L: 파일 7, Identifier 7048…
+  M->>F: 실선 확인: 7 → [0, 18], 18 → [3], 3 → [16, 2]
+  F->>F: 2 · 16 · 3 · 18 · 7 순서로 열기<br/>이미 열린 파일은 카운트만 +1
+  F->>F: .cf 안의 cah:/ 로 .resS 위치 확인
+  F-->>L: 파일 7 안의 Cube 오브젝트
+  L-->>C: GameObject 반환, Status = Loaded
+```
+
+파일 연결은 **git과 비슷한 해시 체인**입니다: `BuildManifestHash.txt`(HEAD 포인터) → 매니페스트(tree: 이름 → 해시) → `.cf`(blob, 내용 해시가 이름) → `.resS`. 내용이 같으면 이름이 같아 재사용·무결성 보장이 쉽고, 바뀐 에셋은 새 이름 파일로 생겨서 "새 파일 → 새 매니페스트 → 포인터" 순 교체가 가능한 구조입니다(패치 기능 자체는 없음). 대신 해시 이름이라 사람이 읽을 수 없어 원본 경로는 `ContentLayout.json`에만 남습니다.
+
+```mermaid
+flowchart LR
+  P["BuildManifestHash.txt<br/>고정 이름 포인터"] -- "8df80217…" --> MF["8df80217….json<br/>매니페스트"]
+  MF -- "ContentHash" --> CF1["c4c280b6….cf<br/>Cube.prefab"]
+  MF -- "ContentHash" --> CF2["7265e820….cf<br/>ReflectionProbe 설명 정보"]
+  MF -- "ContentHash" --> CF3["68378b4b….cf<br/>InDoor.unity"]
+  CF2 -- "cah:/" --> RS1["7f18380d….resS<br/>큐브맵 픽셀"]
+  CF3 -- "cah:/ × 4" --> RS2["resS 4개<br/>합쳐진 메시 버텍스"]
+```
+
+**실선 정보는 두 곳에 있다 (실측)**: 씬 `.cf` 안에서 추출한 외부 파일 목록(`a2a42d71….cfid`, `30441f42….cfid`, …, `Library/unity default resources`, …)을 번호로 바꾸면 `[4, 12, 15, 6, 10, 9, 1, 0, 17, 11, 8]`로, 매니페스트의 13번 실선과 **내용·순서가 완전히 같습니다.**
+
+| | `.cf` 안의 외부 파일 목록 | 매니페스트의 실선 |
+|---|---|---|
+| 표기 | 파일 ID(`<GUID>.cfid`) | 파일 번호 + 해시 파일 이름 |
+| 역할 | 열린 파일 안에서 포인터를 다른 파일의 실제 객체로 **연결** | 파일을 열기 **전에** 무엇을 같이 열지 결정(로딩 계획, 참조 카운트의 바탕) |
+
+정리하면 **"무엇을 열지"는 매니페스트, "연 파일의 내용과 배선"은 `.cf`** 입니다. 등록 시 매니페스트 하나만 읽으면 어떤 파일도 열지 않고 전체 로딩 계획을 세울 수 있습니다(추정).
+
+### 4.3.1 결과물과 빌드 기록의 구분
+| 위치 | 성격 | 내용 |
+|---|---|---|
+| `Builds/ContentDirectories/<이름>/` | **배포물** | `.cf`, `.resS`, 매니페스트, `BuildManifestHash.txt`. 폴더 통째로 배포(문서) |
+| `Library/BuildHistory/<빌드ID>/` | **빌드 기록** | `ContentLayout.json`, `ContentSizeSummary.txt`, `BuildLog.jsonl`, `BuildReportSummary.json`, `.buildreport`, `BuildContentTEP.json`은 분석용. **`ScriptsOnlyCache.yaml`만은 Player 빌드 입력** |
+| `Library/BuildInstructions/` | **증분 빌드 캐시** | `<GUID>.buildinst`. 지워도 결과는 같고 다음 빌드만 느려짐 |
+
+`ContentLayout.json`은 Player에 들어가지 않는 **사람용 리포트**이고, 게임이 쓰는 것은 출력 폴더의 매니페스트입니다. 원본 경로 같은 정보를 배포물에서 빼고 최소 정보만 런타임에 둔 구조로 보입니다(추정).
+
+⚠️ `ContentDirectoryDeployment`는 `BuildHistory.TryGet…`이 실패하면 **조용히 건너뜁니다.** `Library`를 지웠거나, 새로 clone했거나, CI에서 콘텐츠와 Player를 다른 작업 공간에서 빌드하면 Player 빌드는 성공하지만 **콘텐츠 전용 타입의 스트리핑 보호가 빠질 수 있습니다.** 같은 작업 공간에서 "콘텐츠 빌드 → Player 빌드" 순서를 지켜야 합니다.
 
 ### 4.4 빌드 측정 (실측)
 | 항목 | 1차 빌드 | 2차 빌드(변경 없음) |
@@ -265,6 +394,22 @@ Cube의 `Lit.mat`(파일 18)과 InDoor 머티리얼 6개(파일 1, 6, 9, 10, 12,
 | 화면 | | **Cube가 사라짐(분홍색 아님)** | | |
 | 해제된 원본으로 `Instantiate` | `MissingReferenceException: The object of type 'UnityEngine.GameObject' has been destroyed…` | | | |
 
+```mermaid
+sequenceDiagram
+  participant C as 게임 코드
+  participant H as Loadable 핸들
+  participant E as 엔진 참조 카운트
+  participant I as 씬의 Cube 인스턴스
+  C->>H: Load()
+  H->>E: Cube · Lit.mat 카운트 1
+  C->>I: Instantiate (카운트 변화 없음)
+  C->>H: Release()
+  H->>E: 카운트 0
+  Note over E: 1프레임 뒤 Lit.mat 언로드
+  E-->>I: 머티리얼 슬롯 = null, 경고 없음
+  Note over I: 화면에서 사라짐
+```
+
 ### 6.8 기타 관찰
 - 빌드 경고 `Fallback fonts are not supported in content directory builds.` → UI 폴백 폰트 제외
 - FBX 메시(`UnityMaterialBall.fbx`)가 독립 파일이 되지 않고 씬 파일 쪽에 합쳐져 집계됨(규칙 미확인)
@@ -323,6 +468,28 @@ Development Build로 `Builds/Player/`에 빌드하고 `%USERPROFILE%\AppData\Loc
 - Root는 등록 해제 전까지 유지(Root에는 Release가 없음)
 ```
 
+**카운트를 움직이는 것과 움직이지 않는 것**
+| 움직임 | 움직이지 않음 |
+|---|---|
+| `Loadable.Load()` / `Release()` | `Instantiate` / `Destroy` |
+| 씬 로드 / 언로드 | `renderer.sharedMaterial = …` 같은 대입 |
+| 디렉터리 등록 / 해제(Root) | 지역 변수로 객체를 들고 있는 것 |
+
+예를 들어 서로 다른 프리팹 A, B가 같은 머티리얼을 실선으로 쓰면, **A·B의 핸들이 모두 `Release()`되어야** 머티리얼이 해제됩니다. 인스턴스를 전부 Destroy해도 핸들이 남아 있으면 머티리얼은 유지되고, 반대로 인스턴스가 살아 있어도 핸들이 모두 놓이면 해제됩니다(E1′). 실선으로 딸려 온 의존 에셋(머티리얼, 셰이더)은 따로 `Release()`할 필요 없이 **마지막 사용자가 놓으면 엔진이 연쇄적으로** 내립니다. 개발자가 직접 `Release()`하는 것은 직접 `Load()`한 핸들뿐입니다.
+
+```mermaid
+flowchart LR
+  HA["핸들 A<br/>CubeA의 Loadable"] --> PA["CubeA.prefab"]
+  HB["핸들 B<br/>CubeB의 Loadable"] --> PB["CubeB.prefab"]
+  PA --> MAT["SharedMat<br/>카운트 2"]
+  PB --> MAT
+  MAT --> SH["Lit.shader"]
+  INST["Instantiate한 인스턴스들"] -. "카운트에 안 잡힘" .-> MAT
+```
+`A.Release()` → SharedMat 카운트 1, 유지 → `B.Release()` → 카운트 0 → **1프레임 뒤** SharedMat과 Lit.shader가 연쇄 해제.
+
+관찰된 동작은 "매니페스트의 실선을 따라 파일을 열 때 카운트 +1, 닫을 때 −1, 0이 되면 1프레임 뒤 언로드하고 실선 대상도 −1"이라는 모델과 일치합니다(실험 A·B). 카운트 단위가 파일인지 오브젝트인지는 에셋 하나가 파일 하나인 이 프로젝트에서는 구분할 수 없었습니다.
+
 `std::shared_ptr`와 비교하면, 인스턴스 하나가 강한 참조 하나라는 점은 같지만 **복사·소멸로 자동 증감하지 않는(RAII 아님)** 명시적 핸들입니다. 그래서 문서의 "쓰는 곳마다 자기 `Loadable` 인스턴스를 가져라"가 이 규칙에서 나옵니다. 위험은 이중 해제가 아니라 **해제된 것을 다른 곳이 계속 쓰는 것(use-after-free)** 입니다.
 
 **실무 패턴**
@@ -345,6 +512,50 @@ Development Build로 `Builds/Player/`에 빌드하고 `%USERPROFILE%\AppData\Loc
 | 사용 중 해제 사고 | `Unload(true)` 시 분홍 머티리얼 | 마지막 `Release` 시 인스턴스가 조용히 사라짐(범위만 에셋으로 좁아짐) |
 | 원격 배포·패치 | 가능(Addressables 원격 카탈로그) | **불가(로컬 전용)** |
 | 코드 스트리핑 | `assetBundleManifestPath` | `ScriptsOnlyCache.yaml` 디렉터리 전달 |
+| 포장 | 번들(아카이브) 하나에 여러 에셋. 내부는 `CAB-…` + `.resS` | 에셋마다 낱개 `.cf`(+ `.resS`). 선택적으로 `content0.archive` |
+| 의존 관계 표 | `AssetBundleManifest` / Addressables 카탈로그: **번들 → 번들**, 키는 주소·라벨 문자열 | 매니페스트: **파일 → 파일**, 키는 `ObjectIdHash`·씬 GUID(엔진만 사용) |
+| 의존 파일 열기 | 순수 AssetBundle은 개발자가 의존 번들을 직접 로드(Addressables가 대행) | 엔진이 매니페스트를 보고 자동으로 엶 |
+
+```mermaid
+flowchart TB
+  subgraph AB["AssetBundle: 번들 단위로 포장"]
+    B1["enemies.bundle<br/>아카이브"] --> C1["CAB-…<br/>여러 에셋의 직렬화 데이터"]
+    B1 --> C2["CAB-….resS"]
+    B2["shared.bundle"] --> C3["CAB-…"]
+    B1 -. "번들 → 번들 의존<br/>의존 번들 전체를 열어야 함" .-> B2
+  end
+  subgraph CD["Content Directories: 에셋마다 낱개 파일"]
+    F1["Cube.cf"] --> F2["Lit.mat.cf"]
+    F2 --> F3["Lit.shader.cf"]
+    F4["Texture.cf"] -- "cah:/" --> F5["….resS"]
+  end
+```
+
+```mermaid
+flowchart LR
+  subgraph ABD["AssetBundle: 배정 안 된 공용 에셋"]
+    EA["EnemyA.bundle"] --> MA["SharedMat 사본 1"]
+    EB["EnemyB.bundle"] --> MB["SharedMat 사본 2"]
+  end
+  subgraph CDD["Content Directories: 같은 빌드"]
+    CA["EnemyA.cf"] --> MC["SharedMat.cf<br/>1벌"]
+    CBB["EnemyB.cf"] --> MC
+  end
+```
+
+### 9.1 AssetBundle에서 중복 메모리가 생기는 이유와 Content Directories의 차이
+(AssetBundle 쪽은 일반적인 Unity 동작이며 이 프로젝트에서 측정하지 않았습니다.)
+
+| 원인 | AssetBundle | Content Directories |
+|---|---|---|
+| ① 빌드 시 암묵적 복사 | 어느 번들에도 배정되지 않은 공용 에셋이 **참조하는 번들마다 복사** → 둘 다 로드하면 메모리에 두 벌 | 에셋 하나 = 파일 하나라 **같은 빌드 안에서는 발생하지 않음**(실측: `Lit.shader` 파일 1개) |
+| ② `Unload(false)` 후 재로드 | 남아 있던 객체와 새로 로드한 사본이 공존 | 이런 옵션 없음. 같은 에셋을 다시 `Load()`하면 **같은 객체** 반환(E3b) |
+| ③ 번들 단위 해제로 인한 과보유 | 에셋 하나만 필요해도 번들을 열어 둬야 하고, 번들을 내리거나 전체 스캔 전까지 남음(Addressables의 카운트도 번들 단위) | 에셋 단위 카운트·해제(실측: `Lit.mat`만 −1) |
+
+단, Content Directories도 **빌드끼리는 ①과 같은 중복이 그대로** 생깁니다. AssetBundle의 "번들 경계 중복"이 "빌드 경계 중복"으로 범위가 바뀐 것입니다.
+
+### 9.2 결론
+같은 직렬화 포맷 위에서 **포장 단위를 번들에서 에셋으로 바꾸고, 의존 관계를 파일 단위로 엔진이 관리**하게 만든 덕분에 빌드 내 중복, 과보유, 수동 의존 번들 관리 문제가 사라졌습니다. 로컬 콘텐츠에 한해서는 AssetBundle보다 명확히 나은 구조입니다. 대신 원격 배포가 없고, 수명 관리(핸들 Release와 인스턴스 보호)의 책임이 개발자에게 남습니다. 문서도 "원격 콘텐츠는 AssetBundle, 로컬 콘텐츠는 Content Directories"로 섞어 쓰는 것은 허용하되, 공유 의존성이 두 번 빌드된다고 경고합니다.
 
 ---
 
@@ -353,7 +564,7 @@ Development Build로 `Builds/Player/`에 빌드하고 `%USERPROFILE%\AppData\Loc
 ### 10.1 배포·운영
 1. **로컬 전용**: 원격 다운로드, CDN, 카탈로그 업데이트, 패치 없음(문서). 해시 파일명 덕분에 차분 패치를 직접 만들 수는 있으나 다운로드·저장·정리 로직을 모두 구현해야 함.
 2. **코드 변경은 앱 업데이트 필수**: 콘텐츠에 코드가 들어가지 않으므로 새 Root 클래스·새 컴포넌트는 Player 재빌드 필요(문서, 실측).
-3. **빌드 순서 결합**: 콘텐츠를 먼저 빌드하고 `ScriptsOnlyCache.yaml` 디렉터리를 Player 빌드에 넘겨야 콘텐츠 전용 타입이 보존됨. yaml은 내부 포맷(문서).
+3. **빌드 순서 결합**: 콘텐츠를 먼저 빌드하고 `ScriptsOnlyCache.yaml` 디렉터리를 Player 빌드에 넘겨야 콘텐츠 전용 타입이 보존됨. yaml은 내부 포맷(문서). 빌드 기록이 `Library` 아래에 있어서, 기록이 없으면 문서의 배포 스크립트는 **경고 없이** 전달을 건너뜀(코드 확인).
 4. **Web 플랫폼**: 동기 파일 접근 때문에 비공식 경로 우회 필요(문서).
 5. **콘텐츠 빌드마다 스크립트 컴파일 비용**(약 7초)이 변경 여부와 무관하게 발생(실측).
 
@@ -364,6 +575,8 @@ Development Build로 `Builds/Player/`에 빌드하고 `%USERPROFILE%\AppData\Loc
 9. **씬 내부 부분 해제 불가**: 부분 해제가 필요하면 프리팹 + `Loadable` 또는 Additive 씬 분리로 설계.
 10. **문자열 기반 로드는 그래프에 안 보임**: `Shader.Find`, `Resources.Load` 등은 추적되지 않아 에디터에서만 동작할 수 있음(문서).
 11. **폴백 폰트 미지원**(실측, 빌드 경고).
+11-1. **빌드 중 새로 만들어지는 데이터는 에셋 단위 공유·해제 대상이 아님**: 정적 배칭으로 합쳐진 메시는 씬 소유로 씬 파일에 들어가서, 원본 FBX와 별개로 존재하고 따로 로드·해제할 수 없음(실측: `Combined Mesh (root: scene)` 4개).
+11-2. **이름·라벨로 찾는 기능 없음**: 매니페스트의 키는 `ObjectIdHash`라 런타임에 "무엇이 들어 있나"를 검색하거나 문자열로 고를 수 없음. 필요하면 Root에 `Dictionary<string, Loadable<…>>` 같은 목록을 직접 만들어야 함(문서 예시).
 
 ### 10.3 런타임 수명 관리
 12. **`Loadable` 인스턴스는 참조 1개만**: 공유하면 첫 `Release()`가 모두에게 영향(문서, 실측).
@@ -388,7 +601,10 @@ Development Build로 `Builds/Player/`에 빌드하고 `%USERPROFILE%\AppData\Loc
 | `ScriptsOnlyCache.yaml` 전달 유무에 따른 스트리핑 차이 | 비교 실험 미진행(Stripping Level High, `AddPreviousBuildReportDirectory` 주석 처리로 비교 가능) |
 | 참조 카운트 단위(파일인지 오브젝트인지) | 비공개 |
 | `Loadable<T>`가 클래스인지 구조체인지 | 비어 있는 필드에서 `.Status` 접근 시 NRE → 클래스로 추정 |
-| FBX 메시가 씬 파일에 합쳐진 배치 규칙 | 실험 L1 예정 |
+| ~~FBX 메시가 씬 파일에 합쳐진 배치 규칙~~ | **해결**: 정적 배칭으로 합쳐진 메시가 씬 소유로 저장됨(4.2) |
+| `.cf`가 `.resS`를 찾는 방식 | **해결**: `.cf` 안의 `cah:/<해시>` (4.2) |
+| 출력 폴더의 옛 해시 파일 정리 여부 | 빌드 단계에 `Clean output directory`가 있으나 실제 삭제 여부 미확인 |
+| 아카이브 옵션(`content0.archive`)의 크기·로딩 속도 차이 | 미측정 |
 | `Loadable<Material>`로 로드한 머티리얼과 씬의 같은 머티리얼 공유 여부 | 실험 E2 예정 |
 | `Resources.UnloadUnusedAssets()`가 콘텐츠 에셋에 영향을 주는지 | 실험 E4 예정 |
 | `Shader.Find`가 콘텐츠 셰이더를 찾는지 | 미확인 |

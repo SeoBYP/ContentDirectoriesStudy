@@ -574,6 +574,23 @@ Development Build로 `Builds/Player/`에 빌드하고 `%USERPROFILE%\AppData\Loc
 - Addressables 빌드 레이아웃의 **`DuplicatedAssetCount`는 0**이었습니다. 콘텐츠 디렉터리와 AssetBundle 양쪽에 같은 셰이더가 들어갔는데도 0이므로, **콘텐츠 디렉터리와의 중복은 이 리포트에 잡히지 않습니다.** 이 구성에는 AssetBundle이 하나뿐이라 번들끼리의 중복을 어떻게 세는지는 이번 측정으로 알 수 없습니다.
 - 덤: Addressables는 콘텐츠 디렉터리용 Root를 **자동 생성**합니다(`Library/BuildInstructions/ContentDirectoryRootAssets/AddressableRootAsset.asset`). Addressables 사용자는 Root Asset을 직접 만들 필요가 없습니다.
 
+#### CD4b: Convert schema로 바꾼 그룹을 기존 Addressables 로드 코드로 그대로 로드할 수 있는가 → **가능 (단, 빌드 스크립트 조건 있음)**
+`measure/cd4-addressables` 브랜치, 근거는 `measurements/cd4b_convert_runtime.log`.
+- 런타임 코드(`CdAddressablesRunner`)는 평범한 Addressables 코드입니다: `LoadAssetAsync<GameObject>("Cube")` → `Instantiate` → `Release`, 그리고 `InstantiateAsync("Cube")` → `ReleaseInstance`. **세 단계 모두 이 코드를 그대로** 썼습니다.
+- 변환은 Groups 창의 "Convert schema(s) to Content Directory"가 호출하는 패키지 코드(`ConvertGroupToContentDirectory`)와 같은 처리를 스크립트로 했습니다: `BundledAssetGroupSchema`는 **지우지 않고 비활성화**, `ContentDirectoryGroupSchema`를 추가해 빌드·로드 경로를 이어받고 활성화, 기본 빌드 경로의 AssetBundle 삭제.
+
+| 단계 | 그룹 / 빌드 스크립트 | 빌드 결과 | Player 실행 결과 |
+|---|---|---|---|
+| A | AssetBundle 그룹 / `BuildScriptSchemaDriven`("Default Build Script") | 번들 2개 | 로드 성공. 위치 `BundledAssetProvider` + 의존 `AssetBundleProvider`(`conv_group_assets_all_….bundle`) |
+| **B** | 변환한 그룹 / `BuildScriptSchemaDriven`("Default Build Script") | 번들 0, **콘텐츠 디렉터리 1**(`content0.archive`) | **로드 성공.** 위치 `NativeContentAssetEntryProvider`, 의존 없음 |
+| B0 | 변환한 그룹 / `BuildScriptPackedMode`("Build Script (AssetBundles)") | **번들 0, 콘텐츠 디렉터리 0, 에러 없음** | **실패**: `InvalidKeyException … No Location found for Key=Cube` |
+
+A와 B의 런타임 결과는 같았습니다. 컴포넌트 `[Transform, MeshFilter, MeshRenderer, BoxCollider, Rotator]`, 머티리얼 `Lit/Universal Render Pipeline/Lit`, 콘텐츠 머티리얼 2 → 3 → `Release` 후 2, `InstantiateAsync` 후 3 → `ReleaseInstance` 후 2. 바뀐 것은 Addressables 내부의 **위치(로케이션) 공급자뿐**입니다.
+
+- **"코드 변경 없이 전환"은 로컬 그룹 + Default Build Script 조건에서 실측으로 확인**됐습니다.
+- 함정: 4.1.1에서 UI 이름 "Default Build Script"는 `BuildScriptSchemaDriven`이고, `BuildScriptPackedMode`의 이름은 "Build Script (AssetBundles)"입니다(그런데 `BuildScriptPackedMode`의 `CreateAssetMenu` 경로는 ".../Default Build Script"라 헷갈립니다). 활성 빌더가 AssetBundle 전용이면 변환된 그룹은 **경고 없이 아무것도 빌드되지 않고**, 런타임에서야 키를 못 찾습니다. 새로 만든 4.1.1 설정은 `BuildScriptSchemaDriven`을 활성으로 지정합니다(패키지 소스 확인). 2.x에서 올린 기존 프로젝트의 활성 빌더가 어떻게 되는지는 확인하지 못했습니다.
+- 참고: 측정 초기 코드(`yield return` 초기화 핸들)로는 A Player가 초기화 단계에서 2회 멈췄고, 완료를 프레임마다 확인하는 코드로 바꾼 뒤에는 정상이었습니다. 원인은 확인하지 못했고, 위 결과는 모두 바꾼 코드로 A와 B를 다시 빌드해 잰 값입니다.
+
 ---
 
 ## 8. 참조 카운트 규칙 (확정)
@@ -728,7 +745,8 @@ flowchart LR
 |---|---|
 | ~~`ScriptsOnlyCache.yaml` 전달 유무에 따른 스트리핑 차이~~ | **해결(CD3)**: 미전달 시 `FreeCamera`, `ProbeVolume` 스트리핑, `Rotator`는 사용자 어셈블리 MonoBehaviour 보존 규칙으로 남음 |
 | 패키지 어셈블리의 MonoBehaviour가 문서 규칙과 달리 스트리핑된 이유 | 미확인 |
-| CD4b: Convert schema로 바꾼 그룹을 기존 Addressables 로드 코드 그대로 Player에서 로드할 수 있는가("코드 변경 없이 전환") | 미측정(빌드 산출물만 확인) |
+| ~~CD4b: Convert schema로 바꾼 그룹을 기존 Addressables 로드 코드 그대로 Player에서 로드할 수 있는가~~ | **해결(CD4b)**: Default Build Script(`BuildScriptSchemaDriven`)에서 가능. AssetBundle 전용 빌더면 경고 없이 빈 빌드 |
+| 2.x에서 4.x로 올린 기존 프로젝트의 활성 빌더 | 미확인 |
 | 참조 카운트 단위(파일인지 오브젝트인지) | 비공개 |
 | `Loadable<T>`가 클래스인지 구조체인지 | 비어 있는 필드에서 `.Status` 접근 시 NRE → 클래스로 추정 |
 | ~~FBX 메시가 씬 파일에 합쳐진 배치 규칙~~ | **해결**: 정적 배칭으로 합쳐진 메시가 씬 소유로 저장됨(4.2) |

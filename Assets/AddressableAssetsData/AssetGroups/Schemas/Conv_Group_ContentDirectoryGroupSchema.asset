@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3045443efcf88e04da10c44bb8ff11b8, type: 3}
-  m_Name: CD_Group_ContentDirectoryGroupSchema
+  m_Name: Conv_Group_ContentDirectoryGroupSchema
   m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.GroupSchemas.ContentDirectoryGroupSchema
-  m_Group: {fileID: 11400000, guid: 8a41c37bf95e2c94d8f2bca02d61750f, type: 2}
+  m_Group: {fileID: 11400000, guid: cc42261a3d91ed0428314b45cbc8db38, type: 2}
   m_SchemaIsEnabled: 1
   m_IncludeInBuild: 1
   m_CatalogName: AddressablesMainContentCatalog

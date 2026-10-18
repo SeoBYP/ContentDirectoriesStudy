@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
-  m_Name: AB_Group
+  m_Name: Conv_Group
   m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
-  m_GroupName: AB_Group
-  m_GUID: 723e570508fec7a44bd03350724cb6d4
+  m_GroupName: Conv_Group
+  m_GUID: 4b01e983f26e28040ae521585d2808b5
   m_SerializeEntries:
-  - m_GUID: c27fff3c432bb58449a5fd599409e906
-    m_Address: CubeB
+  - m_GUID: 462de8f7fb5dac54eb97111ce3d2eda1
+    m_Address: Cube
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -24,8 +24,12 @@ MonoBehaviour:
   m_Settings: {fileID: 11400000, guid: d8d6ec774bf3ede4989cc009558777bb, type: 2}
   m_SchemaSet:
     m_Schemas:
-    - {fileID: 11400000, guid: 9b0eab67fc04eb64d88bcab780c24e05, type: 2}
+    - {fileID: 11400000, guid: 71108bbd5be552c4d897c279c1ac3620, type: 2}
+    - {fileID: 11400000, guid: 2f8ec8db8717cb64a8f7cdb987a4a36c, type: 2}
+    - {fileID: 11400000, guid: 57fef2d3a4e5ea045ad2b8f3ec3f1a03, type: 2}
     m_SchemaDisplayOrder:
-    - AB_Group_BundledAssetGroupSchema
+    - Conv_Group_BundledAssetGroupSchema
+    - Conv_Group_ContentUpdateGroupSchema
+    - Conv_Group_ContentDirectoryGroupSchema
   m_IncludeInBuild: 1
   m_IncludeInBuildMigrated: 1

@@ -1,0 +1,44 @@
+===== A build
+[CDM4b] A builder=BuildScriptSchemaDriven("Default Build Script") error='' bundles=2 contentDirs=0
+[CDM4b] A bundle a1a4b4f41c02edac999efe0ed6b65683_monoscripts_2f4c1ae7c666409718ac89d6bb2c7823.bundle
+[CDM4b] A bundle conv_group_assets_all_0c09592804d75e31408de90d07892da5.bundle
+[CDM4b] A aa files: catalog.bin, catalog.hash, settings.json, link.xml, a1a4b4f41c02edac999efe0ed6b65683_monoscripts_2f4c1ae7c666409718ac89d6bb2c7823.bundle, conv_group_assets_all_0c09592804d75e31408de90d07892da5.bundle
+[CDM4b] A player Succeeded 1144457366 bytes
+===== A player
+[CDM4b] Instantiate 컴포넌트=[Transform, MeshFilter, MeshRenderer, BoxCollider, Rotator] 머티리얼=Lit/Universal Render Pipeline/Lit content=3 [Default-Skybox,Lit,Sprites-Default]
+[CDM4b] InstantiateAsync status=Succeeded result=Cube(Clone) content=3 [Default-Skybox,Lit,Sprites-Default]
+[CDM4b] LoadAssetAsync status=Succeeded result=Cube error=
+[CDM4b] Release 후 content=2 [Default-Skybox,Sprites-Default]
+[CDM4b] ReleaseInstance 후 content=2 [Default-Skybox,Sprites-Default]
+[CDM4b] done
+[CDM4b] init done=True status=Succeeded pct=1.00 0.01s err=
+[CDM4b] location provider=UnityEngine.ResourceManagement.ResourceProviders.BundledAssetProvider internalId=Assets/Prefab/Cube.prefab deps=UnityEngine.ResourceManagement.ResourceProviders.AssetBundleProvider:C:/Users/user/Github/ContentDirectoriesStudy/Builds/MeasureAddr/A/ContentDirectoriesStudy_Data/StreamingAssets/aa\StandaloneWindows64\conv_group_assets_all_0c09592804d75e31408de90d07892da5.bundle,UnityEngine.ResourceManagement.ResourceProviders.AssetBundleProvider:C:/Users/user/Github/Content
+[CDM4b] start
+===== B0 build
+[CDM4b] converted Conv_Group: schemas=[BundledAssetGroupSchema(False), ContentDirectoryGroupSchema(True), ContentUpdateGroupSchema(True)]
+[CDM4b] B0 builder=BuildScriptPackedMode("Build Script (AssetBundles)") error='' bundles=0 contentDirs=0
+[CDM4b] B0 aa files: catalog.bin, catalog.hash, settings.json, link.xml
+[CDM4b] B0 player Succeeded 1141695163 bytes
+===== B0 player
+UnityEngine.AddressableAssets.InvalidKeyException: Exception of type 'UnityEngine.AddressableAssets.InvalidKeyException' was thrown. No Location found for Key=Cube
+[CDM4b] InstantiateAsync status=Failed result=null content=2 [Default-Skybox,Sprites-Default]
+[CDM4b] LoadAssetAsync status=Failed result=null error=Exception of type 'UnityEngine.AddressableAssets.InvalidKeyException' was thrown. No Location found for Key=Cube
+[CDM4b] done
+[CDM4b] init Succeeded
+===== B build
+[CDM4b] converted Conv_Group: schemas=[BundledAssetGroupSchema(False), ContentDirectoryGroupSchema(True), ContentUpdateGroupSchema(True)]
+[CDM4b] B builder=BuildScriptSchemaDriven("Default Build Script") error='' bundles=0 contentDirs=1
+[CDM4b] B contentdir Library/com.unity.addressables/aa/Windows/StandaloneWindows64 report=Library/BuildHistory\20261018-130734Z-e355adb8
+[CDM4b] B aa files: catalog.bin, catalog.hash, settings.json, link.xml, BuildManifestHash.txt, content0.archive
+[CDM4b] B player Succeeded 1141945299 bytes
+===== B player
+[CDM4b] Instantiate 컴포넌트=[Transform, MeshFilter, MeshRenderer, BoxCollider, Rotator] 머티리얼=Lit/Universal Render Pipeline/Lit content=3 [Default-Skybox,Lit,Sprites-Default]
+[CDM4b] InstantiateAsync status=Succeeded result=Cube(Clone) content=3 [Default-Skybox,Lit,Sprites-Default]
+[CDM4b] LoadAssetAsync status=Succeeded result=Cube error=
+[CDM4b] Release 후 content=2 [Default-Skybox,Sprites-Default]
+[CDM4b] ReleaseInstance 후 content=2 [Default-Skybox,Sprites-Default]
+[CDM4b] done
+[CDM4b] init done=True status=Succeeded pct=1.00 0.01s err=
+[CDM4b] location provider=UnityEngine.AddressableAssets.ResourceProviders.NativeContentAssetEntryProvider internalId=Cube deps=
+[CDM4b] start
+===== 참고: 첫 측정 코드(yield return 핸들)에서 A Player가 init 전에 2회 정지 (player_cd4b_A2.log, 120~180초 타임아웃)

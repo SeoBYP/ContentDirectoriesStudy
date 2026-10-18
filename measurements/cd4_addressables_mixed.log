@@ -1,0 +1,38 @@
+[CDM4] DataBuilders: 0:BuildScriptFastMode, 1:BuildScriptPackedPlayMode, 2:BuildScriptPackedMode, 3:BuildScriptSchemaDriven | active=3
+[CDM4] group Default Local Group: schemas=[BundledAssetGroupSchema,ContentUpdateGroupSchema] entries=[]
+[CDM4] group AB_Group: schemas=[BundledAssetGroupSchema] entries=[Assets/Prefab/CubeB.prefab]
+[CDM4] group CD_Group: schemas=[ContentDirectoryGroupSchema] entries=[Assets/Prefab/Cube.prefab]
+[CDM4] build error='' duration=13.1s output=Library/com.unity.addressables/aa/Windows/settings.json
+[CDM4] bundle FilePath=Library/com.unity.addressables/aa/Windows/StandaloneWindows64\a1a4b4f41c02edac999efe0ed6b65683_monoscripts_2f4c1ae7c666409718ac89d6bb2c7823.bundle | InternalBundleName=a1a4b4f41c02edac999efe0ed6b65683_monoscripts | SourceAssetGroup=Default Local Group (UnityEditor.AddressableAssets.Settings.AddressableAssetGroup) | Crc=2699313936 | Hash=2f4c1ae7c666409718ac89d6bb2c7823 | Cat
+[CDM4] bundle FilePath=Library/com.unity.addressables/aa/Windows/StandaloneWindows64\ab_group_assets_all_e9acd051b5dbf68419da760c2f515fcc.bundle | InternalBundleName=b229801490d2d700f9723ae8a5d30ddd | SourceAssetGroup=AB_Group (UnityEditor.AddressableAssets.Settings.AddressableAssetGroup) | Crc=3132910074 | Hash=e9acd051b5dbf68419da760c2f515fcc | CatalogName=AddressablesMainContentCatalog
+[CDM4] contentdir ContentDirectoryPath=Library/com.unity.addressables/aa/Windows/StandaloneWindows64 | BuildReportDirectory=Library/BuildHistory\20261018-122718Z-f78bfe16 | Hash=e9d93495eb9d1ffe098674bfc9fbdb12 | CatalogName=AddressablesMainContentCatalog | GroupGuids=System.Collections.Generic.List`1[System.String] | BuildSessionGUID=f78bfe1667faf1247afe934ad84f8c58
+
+== content0.archive / bundles
+32 BuildManifestHash.txt
+1613 a1a4b4f41c02edac999efe0ed6b65683_monoscripts_2f4c1ae7c666409718ac89d6bb2c7823.bundle
+451392 ab_group_assets_all_e9acd051b5dbf68419da760c2f515fcc.bundle
+211488 content0.archive
+
+== Content directory ContentLayout (BuildHistory/20261018-122718Z-f78bfe16)
+0 [] -> deps []
+1 ['Packages/com.unity.render-pipelines.core/Runtime/RenderPipelineResources/FallbackShader.shader'] -> deps []
+2 ['Packages/com.unity.render-pipelines.universal/Shaders/Lit.shader'] -> deps [5, 1]
+3 ['Assets/Scripts/Rotator.cs', 'Packages/com.unity.addressables/Runtime/ResourceProviders/AddressableRootAsset.cs'] -> deps []
+4 ['Assets/Prefab/Cube.prefab'] -> deps [3, 0, 7]
+5 ['Packages/com.unity.render-pipelines.universal/Shaders/Utils/FallbackError.shader'] -> deps [1]
+6 ['Library/BuildInstructions/ContentDirectoryRootAssets/AddressableRootAsset.asset'] -> deps [3]
+7 ['Packages/com.unity.render-pipelines.universal/Runtime/Materials/Lit.mat'] -> deps [2]
+
+Largest Assets:
+   199.5 kb	  42.6% Packages/com.unity.render-pipelines.universal/Shaders/Lit.shader
+     5.8 kb	   1.2% Packages/com.unity.render-pipelines.universal/Shaders/Utils/FallbackError.shader
+-------------------------------------------------------------------------------
+== Addressables buildlayout (AB_Group bundle)
+DuplicatedAssetCount = 0
+Bundle {'Name': 'a1a4b4f41c02edac999efe0ed6b65683_monoscripts_2f4c1ae7c666409718ac89d6bb2c7823.bundle', 'FileSize': 1613, 'Compression': 'Lz4HC'}
+Bundle {'Name': 'ab_group_assets_all_e9acd051b5dbf68419da760c2f515fcc.bundle', 'FileSize': 451392, 'Compression': 'None'}
+ExplicitAsset {'AssetPath': 'Assets/Prefab/CubeB.prefab', 'SerializedSize': 451}
+DataFromOtherAsset {'AssetPath': 'Packages/com.unity.render-pipelines.universal/Runtime/Materials/Lit.mat', 'SerializedSize': 1888}
+DataFromOtherAsset {'AssetPath': 'Packages/com.unity.render-pipelines.universal/Shaders/Utils/FallbackError.shader', 'SerializedSize': 5892}
+DataFromOtherAsset {'AssetPath': 'Packages/com.unity.render-pipelines.universal/Shaders/Lit.shader', 'SerializedSize': 343484}
+DataFromOtherAsset {'AssetPath': 'Packages/com.unity.render-pipelines.core/Runtime/RenderPipelineResources/FallbackShader.shader', 'SerializedSize': 3864}

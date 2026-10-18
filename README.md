@@ -505,6 +505,71 @@ Development Build로 `Builds/Player/`에 빌드하고 `%USERPROFILE%\AppData\Loc
 
 ---
 
+### 7.4 블로그용 추가 측정 (CD1~CD4, 배치 모드 자동 측정)
+에디터를 열지 않고 Unity 배치 모드로 빌드하고, Player를 `-cdmeasure` 인자로 실행해 `CdMeasureRunner`가 자동으로 측정했습니다. 두 Player 모두 **Managed Stripping Level = High**, Development Build이며, 차이는 `ScriptsOnlyCache.yaml` 디렉터리 전달 여부뿐입니다. 원본 로그는 `measurements/`에 있습니다.
+
+| Player | 크기 | 스트리핑 정보 전달 |
+|---|---|---|
+| `Builds/Measure/Normal` | 916,096,116 B | 전달함(정상) |
+| `Builds/Measure/NoReport` | 915,901,725 B (−194,391 B) | 전달 안 함 |
+
+#### CD1: `Resources.UnloadUnusedAssets()`가 콘텐츠 에셋을 내리는가 → **내리지 않음**
+`Instantiate`도 C# 참조도 없이 **핸들만** 잡은 상태에서 호출했습니다(콘텐츠 머티리얼 = `hideFlags None`이고 `Hidden/`이 아닌 머티리얼).
+
+| 단계 | 콘텐츠 머티리얼 | 비고 |
+|---|---|---|
+| 기준선 | 2 `[Default-Skybox, Sprites-Default]` | |
+| Cube 핸들만 `Load()` | 3 (+`Lit`) | `Status=Loaded` |
+| `UnloadUnusedAssets()` | **3 유지** | `Unloading 0 unused Assets`, `Status=Loaded`, `Target==null: False` |
+| Cube `Release()` | 2 | |
+| Gold 핸들(`Loadable<Material>`)만 `Load()` | 3 (+`Gold`) | |
+| `UnloadUnusedAssets()` | **3 유지** | `Unloading 0 unused Assets` |
+| Gold `Release()` | 2 | |
+
+`UnloadUnusedAssets`는 이 상태에서 1~2 ms(약 2,500개 오브젝트 스캔)였고, **콘텐츠 핸들이 잡은 에셋은 "사용 중"으로 취급**했습니다. 두 Player 결과 동일.
+
+#### CD2: `Loadable<Material>`과 씬의 같은 머티리얼은 같은 객체인가 → **같은 객체, 참조도 합산**
+| 순서 | 단계 | 콘텐츠 머티리얼 | 결과 |
+|---|---|---|---|
+| 1 | InDoor 씬 로드 | 8 (+6) | 씬의 Gold `EntityId 2644:256` |
+| 1 | Gold 핸들 `Load()` | **8 (+0)** | `same=True`, 같은 `EntityId` |
+| 1 | 씬 언로드 | **3** | Gold만 남음(핸들이 잡고 있음) |
+| 1 | Gold `Release()` | 2 | |
+| 2 | Gold 핸들 `Load()` 먼저 | 3 | |
+| 2 | 씬 로드 | 8 | `same=True` |
+| 2 | Gold `Release()` (씬 유지) | **8** | 씬이 쓰고 있어 유지 |
+| 2 | 씬 언로드 | 2 | |
+
+같은 빌드 안에서는 **어느 경로로 로드해도 객체는 하나**이고, 씬과 핸들이 각각 참조를 가집니다. 8장의 규칙(마지막 사용자가 놓을 때 해제)이 머티리얼 단위에서도 그대로 성립합니다.
+
+#### CD3: `ScriptsOnlyCache` 전달을 끄면 스트리핑으로 깨지는가 → **패키지 타입이 지워져 "스크립트 없음" 경고**
+| 항목 | Normal | NoReport |
+|---|---|---|
+| InDoor 씬 로드 시 경고 | 없음 | `The referenced script (UnityEngine.Rendering.FreeCamera) on this Behaviour is missing!`<br/>`The referenced script (UnityEngine.Rendering.ProbeVolume) on this Behaviour is missing!` (로드할 때마다) |
+| `Rotator`(Assembly-CSharp, Cube에만 붙임) | 존재, 동작 | **존재, 동작** |
+| `ColorAdjustments` / `ScreenSpaceLensFlare` 타입 | 존재 | 존재 |
+
+- 콘텐츠(InDoor)에서만 쓰는 **SRP Core 패키지 타입**(`FreeCamera`, `ProbeVolume`)이 NoReport에서 **스트리핑되어 컴포넌트가 빠졌습니다.** 빌드는 성공하고, 런타임에 경고만 남습니다. `ProbeVolume`이 빠지면 APV 간접 조명이 동작하지 않게 됩니다(화면 비교는 미실측).
+- 반면 직접 만든 `Rotator`와 URP 볼륨 컴포넌트는 정보 전달 없이도 남았습니다. 이유는 확인하지 못했습니다. 사용자 어셈블리의 MonoBehaviour나 URP 쪽 보존 설정 때문일 가능성이 있습니다(추정).
+- 즉 **"직접 만든 스크립트는 괜찮았으니 안전하다"고 판단하면 안 됩니다.** 무엇이 지워지는지는 타입마다 다르고, 전달을 빠뜨려도 빌드 에러가 나지 않습니다.
+
+#### CD4: Addressables 4.1.1에서 Content Directory 그룹과 AssetBundle 그룹을 섞으면 → **공유 의존성이 양쪽에 각각 빌드됨**
+`measure/cd4-addressables` 브랜치에서 측정했습니다(main에는 Addressables를 설치하지 않음).
+- 구성: `CD_Group`(`ContentDirectoryGroupSchema`)에 Cube, `AB_Group`(`BundledAssetGroupSchema`, 무압축)에 CubeB(같은 `Lit.mat` 사용), 빌더는 `BuildScriptSchemaDriven`
+- 결과: 빌드 13.1초, 같은 출력 폴더에 `content0.archive`(211,488 B, 기본 LZ4 아카이브)와 `ab_group_assets_all_….bundle`(451,392 B)
+
+| 공유 의존성 | 콘텐츠 디렉터리 (`ContentLayout.json`) | AssetBundle (`buildlayout`) |
+|---|---|---|
+| `Lit.mat` | 포함 (파일 7) | 포함 (1,888 B) |
+| `Lit.shader` | 포함 (199.5 KB) | 포함 (343,484 B) |
+| `FallbackError.shader` / `FallbackShader.shader` | 포함 | 포함 |
+
+- 문서의 경고("공유 의존성이 두 번 빌드된다")가 **실측으로 확인**됐습니다.
+- 그런데 Addressables 빌드 레이아웃의 **`DuplicatedAssetCount`는 0**이었습니다. Addressables의 중복 집계는 번들끼리만 보고 **콘텐츠 디렉터리와의 중복은 세지 않는** 것으로 보입니다. 혼합 구성에서는 중복이 리포트에 드러나지 않으니 직접 확인해야 합니다.
+- 덤: Addressables는 콘텐츠 디렉터리용 Root를 **자동 생성**합니다(`Library/BuildInstructions/ContentDirectoryRootAssets/AddressableRootAsset.asset`). Addressables 사용자는 Root Asset을 직접 만들 필요가 없습니다.
+
+---
+
 ## 8. 참조 카운트 규칙 (확정)
 
 에디터와 Player에서 모두 확인한 규칙입니다.
@@ -519,6 +584,8 @@ Development Build로 `Builds/Player/`에 빌드하고 `%USERPROFILE%\AppData\Loc
 - 참조 수가 0이 되면 정확히 1프레임 뒤 언로드                   (E3, E3b)
 - Release() 중복 호출은 에러 없음                               (E3)
 - Instantiate한 인스턴스는 참조로 세지 않음                     (E1′)
+- 같은 에셋은 핸들·씬 어느 경로로 로드해도 같은 객체, 참조는 합산  (CD2)
+- Resources.UnloadUnusedAssets()는 핸들이 잡은 에셋을 내리지 않음  (CD1)
 - Root는 등록 해제 전까지 유지(Root에는 Release가 없음)
 ```
 
@@ -619,12 +686,12 @@ flowchart LR
 ### 10.1 배포·운영
 1. **로컬 전용(6.6 기준)**: 원격 다운로드, CDN, 카탈로그 업데이트, 패치 없음(문서). 해시 파일명 덕분에 차분 패치를 직접 만들 수는 있으나 다운로드·저장·정리 로직을 모두 구현해야 함. Unity는 Unity 7 세대에 기기에 없는 아티팩트만 받는 OTA 배포와 아티팩트 단위 차분 업데이트를 계획 중이며, 구체적인 시점·API는 미공개(2027년 추가 공개 예정, 블로그).
 2. **코드 변경은 앱 업데이트 필수**: 콘텐츠에 코드가 들어가지 않으므로 새 Root 클래스·새 컴포넌트는 Player 재빌드 필요(문서, 실측).
-3. **빌드 순서 결합**: 콘텐츠를 먼저 빌드하고 `ScriptsOnlyCache.yaml` 디렉터리를 Player 빌드에 넘겨야 콘텐츠 전용 타입이 보존됨. yaml은 내부 포맷(문서). 빌드 기록이 `Library` 아래에 있어서, 기록이 없으면 문서의 배포 스크립트는 **경고 없이** 전달을 건너뜀(코드 확인).
+3. **빌드 순서 결합**: 콘텐츠를 먼저 빌드하고 `ScriptsOnlyCache.yaml` 디렉터리를 Player 빌드에 넘겨야 콘텐츠 전용 타입이 보존됨. yaml은 내부 포맷(문서). 빌드 기록이 `Library` 아래에 있어서, 기록이 없으면 문서의 배포 스크립트는 **경고 없이** 전달을 건너뜀(코드 확인). 전달이 빠지면 빌드는 성공하고, 콘텐츠 전용 패키지 타입(`FreeCamera`, `ProbeVolume`)이 지워져 **런타임에 "스크립트 없음" 경고만** 남음(실측 CD3).
 4. **Web 플랫폼**: 동기 파일 접근 때문에 비공식 경로 우회 필요(문서).
 5. **콘텐츠 빌드마다 스크립트 컴파일 비용**(약 7초)이 변경 여부와 무관하게 발생(실측).
 
 ### 10.2 중복·의존성
-6. **빌드끼리 중복 제거 불가**: 디렉터리끼리, Player와 콘텐츠 사이에 같은 에셋이 각각 들어감(문서).
+6. **빌드끼리 중복 제거 불가**: 디렉터리끼리, Player와 콘텐츠 사이에 같은 에셋이 각각 들어감(문서). Addressables에서 Content Directory 그룹과 AssetBundle 그룹을 섞으면 공유 의존성이 양쪽에 빌드되는데, Addressables 빌드 레이아웃의 `DuplicatedAssetCount`는 0으로 나와 **리포트로는 드러나지 않음**(실측 CD4).
 7. **같은 씬을 Player와 콘텐츠에 동시에 넣으면 어느 쪽이 로드될지 보장 안 됨**(문서).
 8. **순환 참조는 한 덩어리로 로드, 64 MB 초과 시 빌드 실패**(문서).
 9. **씬 내부 부분 해제 불가**: 부분 해제가 필요하면 프리팹 + `Loadable` 또는 Additive 씬 분리로 설계.
@@ -653,19 +720,21 @@ flowchart LR
 
 | 항목 | 비고 |
 |---|---|
-| `ScriptsOnlyCache.yaml` 전달 유무에 따른 스트리핑 차이 | 비교 실험 미진행(Stripping Level High, `AddPreviousBuildReportDirectory` 주석 처리로 비교 가능) |
+| ~~`ScriptsOnlyCache.yaml` 전달 유무에 따른 스트리핑 차이~~ | **해결(CD3)**: 미전달 시 `FreeCamera`, `ProbeVolume` 스트리핑. `Rotator`가 남은 이유는 미확인 |
 | 참조 카운트 단위(파일인지 오브젝트인지) | 비공개 |
 | `Loadable<T>`가 클래스인지 구조체인지 | 비어 있는 필드에서 `.Status` 접근 시 NRE → 클래스로 추정 |
 | ~~FBX 메시가 씬 파일에 합쳐진 배치 규칙~~ | **해결**: 정적 배칭으로 합쳐진 메시가 씬 소유로 저장됨(4.2) |
 | `.cf`가 `.resS`를 찾는 방식 | **해결**: `.cf` 안의 `cah:/<해시>` (4.2) |
 | 출력 폴더의 옛 해시 파일 정리 여부 | 빌드 단계에 `Clean output directory`가 있으나 실제 삭제 여부 미확인 |
 | 아카이브 옵션(`content0.archive`)의 크기·로딩 속도 차이 | 미측정 |
-| `Loadable<Material>`로 로드한 머티리얼과 씬의 같은 머티리얼 공유 여부 | 실험 E2 예정 |
-| `Resources.UnloadUnusedAssets()`가 콘텐츠 에셋에 영향을 주는지 | 실험 E4 예정 |
+| ~~`Loadable<Material>`로 로드한 머티리얼과 씬의 같은 머티리얼 공유 여부~~ | **해결(CD2)**: 같은 객체 |
+| ~~`Resources.UnloadUnusedAssets()`가 콘텐츠 에셋에 영향을 주는지~~ | **해결(CD1)**: 핸들이 잡은 에셋은 내리지 않음 |
+| NoReport Player에서 APV 간접 조명이 실제로 깨져 보이는지 | 화면 비교 미실측 |
 | `Shader.Find`가 콘텐츠 셰이더를 찾는지 | 미확인 |
 | 콘텐츠만 다시 빌드해서 Player의 StreamingAssets만 교체하는 방식 | 미확인 |
 | 모바일 `persistentDataPath`에서 등록 가능 여부 | 미확인 |
-| Addressables 4.x 그룹 변환 | 패키지 미설치 |
+| Addressables 4.x 혼합 빌드 | **해결(CD4)**: `measure/cd4-addressables` 브랜치. 공유 의존성이 양쪽에 빌드됨 |
+| Addressables 4.x 그룹 변환(UI의 Convert schema) 및 런타임 로드 | 미진행 |
 
 공식 문서 진행 상황:
 
@@ -676,9 +745,9 @@ flowchart LR
 | content-directories-references | 완료 |
 | content-directories-scenes | 완료 |
 | content-directories-load | 완료(에디터 + Player 배포) |
-| managed-code-stripping-content | 구조 확인, 비교 실험 미진행 |
-| assets-avoid-duplication | 빌드 내부만 확인 |
-| Addressables convert-content-directories | 미진행 |
+| managed-code-stripping-content | 완료(CD3 비교 실험) |
+| assets-avoid-duplication | 빌드 내부 + Addressables 혼합 빌드(CD4) 확인 |
+| Addressables convert-content-directories | 혼합 빌드만 확인(CD4), 변환 절차는 미진행 |
 
 ---
 
@@ -722,6 +791,18 @@ Assets/
 
 로그 위치: 에디터 `Logs/Editor.log`, Player `%USERPROFILE%\AppData\LocalLow\DefaultCompany\ContentDirectoriesStudy\Player.log`
 빌드 분석 자료: `Library/BuildHistory/<빌드ID>/` (`ContentLayout.json`, `ContentSizeSummary.txt`, `ScriptsOnlyCache.yaml`, `BuildLog.jsonl`)
+
+**자동 측정(CD1~CD3) 재현** — 에디터가 이 프로젝트를 열고 있지 않을 때:
+```bash
+"C:/Program Files/Unity/Hub/Editor/6000.6.3f1/Editor/Unity.exe" -batchmode -quit -projectPath . -executeMethod ContentsDirectories.CdMeasureTools.All -logFile Logs/measure/batch_all.log
+```
+```bash
+Builds/Measure/Normal/ContentDirectoriesStudy.exe -cdmeasure -screen-fullscreen 0 -logFile Logs/measure/player_Normal.log
+```
+```bash
+Builds/Measure/NoReport/ContentDirectoriesStudy.exe -cdmeasure -screen-fullscreen 0 -logFile Logs/measure/player_NoReport.log
+```
+CD4는 `measure/cd4-addressables` 브랜치에서 `-executeMethod ContentsDirectories.CdAddressablesTools.Run`으로 재현합니다.
 
 ---
 

@@ -6,6 +6,9 @@ namespace ContentsDirectories
 {
     public class ContentDirectoryDeployment : BuildPlayerProcessor
     {
+        // CD3 비교군용: true면 ScriptsOnlyCache 디렉터리를 Player 빌드에 넘기지 않음
+        public static bool SkipReportDirectoryForMeasurement;
+
         private const string k_WebPreloadFolder =
             "Library/PlayerDataCache/WebGLPreloadedStreamingAssets";
 
@@ -27,6 +30,9 @@ namespace ContentsDirectories
 
             foreach (string directory in directories)
             {
+                if (SkipReportDirectoryForMeasurement)
+                    break;
+
                 if (BuildHistory.TryGetBuildSummaryForOutputPath(directory, out BuildReportSummary summary))
                 {
                     if (BuildHistory.TryGetBuildReportDirectory(

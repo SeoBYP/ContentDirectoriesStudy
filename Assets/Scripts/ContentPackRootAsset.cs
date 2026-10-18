@@ -11,6 +11,9 @@ namespace ContentsDirectories
         public LoadableSceneId bonusLevel;
     
         public ContentPackMetadata metadata;
+
+        // CD2: InDoor 씬도 쓰는 머티리얼(Gold.mat)을 따로 잡는 핸들
+        public Loadable<Material> goldMaterial;
     }
 
 }

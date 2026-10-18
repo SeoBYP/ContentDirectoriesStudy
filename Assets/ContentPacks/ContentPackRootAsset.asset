@@ -17,3 +17,5 @@ MonoBehaviour:
   bonusLevel:
     m_SceneGUID: 988cbc230d1f5174ab9aa0a8beda1dfe
   metadata: {fileID: 11400000, guid: 51d2c1236d2e81740b00ec2bc2c26863, type: 2}
+  goldMaterial:
+    m_LoadableObjectId: {fileID: 2100000, loadable: 1, guid: 2dde01ea3801ce64b92a18ca176bd7b7, type: 2}

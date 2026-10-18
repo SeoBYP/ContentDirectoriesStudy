@@ -1,0 +1,27 @@
+[CDM] baseline content=2 [Default-Skybox,Sprites-Default]
+Unloading 2 unused Assets / (0 B). Loaded Objects now: 2504.
+Total: 1.423300 ms (FindLiveObjects: 0.232100 ms CreateObjectMapping: 0.033500 ms MarkObjects: 1.130400 ms  DeleteObjects: 0.010900 ms)
+[CDM] CD1 아무것도 로드 안 함: UnloadUnusedAssets 2.01 ms (1프레임)
+[CDM] CD1 Cube 핸들만 Load content=3 [Default-Skybox,Lit,Sprites-Default] status=Loaded
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 2515.
+Total: 1.169500 ms (FindLiveObjects: 0.140000 ms CreateObjectMapping: 0.028100 ms MarkObjects: 0.985600 ms  DeleteObjects: 0.002200 ms)
+[CDM] CD1 Cube 핸들 보유 중: UnloadUnusedAssets 1.78 ms (1프레임)
+[CDM] CD1 UnloadUnused 후 content=3 [Default-Skybox,Lit,Sprites-Default] status=Loaded target==null:False
+[CDM] CD1 Cube Release 후 content=2 [Default-Skybox,Sprites-Default]
+[CDM] CD1 Gold 핸들만 Load content=3 [Default-Skybox,Gold,Sprites-Default]
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 2509.
+Total: 0.898500 ms (FindLiveObjects: 0.068500 ms CreateObjectMapping: 0.023100 ms MarkObjects: 0.792800 ms  DeleteObjects: 0.002100 ms)
+[CDM] CD1 Gold 핸들 보유 중: UnloadUnusedAssets 1.43 ms (1프레임)
+[CDM] CD1 UnloadUnused 후 content=3 [Default-Skybox,Gold,Sprites-Default] target==null:False
+[CDM] CD1 Gold Release 후 content=2 [Default-Skybox,Sprites-Default]
+[CDM] CD2-1 씬 로드 content=8 [Black,Default-Skybox,Emissive,Gold,Ground,Metal_Black,Sprites-Default,White] sceneGold=2644:256
+[CDM] CD2-1 Gold Load content=8 [Black,Default-Skybox,Emissive,Gold,Ground,Metal_Black,Sprites-Default,White] same=True id=2644:256
+[CDM] CD2-1 씬 언로드 후 content=3 [Default-Skybox,Gold,Sprites-Default] gold 살아있음:True
+[CDM] CD2-1 Gold Release 후 content=2 [Default-Skybox,Sprites-Default]
+[CDM] CD2-2 Gold Load content=3 [Default-Skybox,Gold,Sprites-Default] id=2650:768
+[CDM] CD2-2 씬 로드 content=8 [Black,Default-Skybox,Emissive,Gold,Ground,Metal_Black,Sprites-Default,White] same=True
+[CDM] CD2-2 Gold Release 후(씬 유지) content=8 [Black,Default-Skybox,Emissive,Gold,Ground,Metal_Black,Sprites-Default,White] sceneGold 살아있음:True
+[CDM] CD2-2 씬 언로드 후 content=2 [Default-Skybox,Sprites-Default]
+[CDM] CD3 타입 존재: Rotator=True ColorAdjustments=True ScreenSpaceLensFlare=True
+[CDM] CD3 Cube 컴포넌트: Transform, MeshFilter, MeshRenderer, BoxCollider, Rotator | GetComponent("Rotator")=True | 회전 0.0→0.9
+[CDM] done

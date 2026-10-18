@@ -510,8 +510,8 @@ Development Build로 `Builds/Player/`에 빌드하고 `%USERPROFILE%\AppData\Loc
 
 | Player | 크기 | 스트리핑 정보 전달 |
 |---|---|---|
-| `Builds/Measure/Normal` | 916,096,116 B | 전달함(정상) |
-| `Builds/Measure/NoReport` | 915,901,725 B (−194,391 B) | 전달 안 함 |
+| `Builds/Measure/Normal` | 916,173,710 B | 전달함(정상) |
+| `Builds/Measure/NoReport` | 915,978,811 B (−194,899 B) | 전달 안 함 |
 
 #### CD1: `Resources.UnloadUnusedAssets()`가 콘텐츠 에셋을 내리는가 → **내리지 않음**
 `Instantiate`도 C# 참조도 없이 **핸들만** 잡은 상태에서 호출했습니다(콘텐츠 머티리얼 = `hideFlags None`이고 `Hidden/`이 아닌 머티리얼).
@@ -543,15 +543,20 @@ Development Build로 `Builds/Player/`에 빌드하고 `%USERPROFILE%\AppData\Loc
 같은 빌드 안에서는 **어느 경로로 로드해도 객체는 하나**이고, 씬과 핸들이 각각 참조를 가집니다. 8장의 규칙(마지막 사용자가 놓을 때 해제)이 머티리얼 단위에서도 그대로 성립합니다.
 
 #### CD3: `ScriptsOnlyCache` 전달을 끄면 스트리핑으로 깨지는가 → **패키지 타입이 지워져 "스크립트 없음" 경고**
+첫 측정의 확인 코드가 `Type.GetType("…")`에 **상수 문자열**을 쓰고 있었는데, UnityLinker가 이런 리플렉션 패턴을 보고 해당 타입을 남길 수 있어서 측정 자체가 결과에 영향을 줄 수 있었습니다. 그래서 타입 이름을 런타임에 만들어 쓰도록 고쳐 **다시 측정**했고(아래가 재측정 값), 결과는 첫 측정과 같았습니다.
+
 | 항목 | Normal | NoReport |
 |---|---|---|
 | InDoor 씬 로드 시 경고 | 없음 | `The referenced script (UnityEngine.Rendering.FreeCamera) on this Behaviour is missing!`<br/>`The referenced script (UnityEngine.Rendering.ProbeVolume) on this Behaviour is missing!` (로드할 때마다) |
-| `Rotator`(Assembly-CSharp, Cube에만 붙임) | 존재, 동작 | **존재, 동작** |
-| `ColorAdjustments` / `ScreenSpaceLensFlare` 타입 | 존재 | 존재 |
+| `FreeCamera`, `ProbeVolume` 타입 (SRP Core 패키지) | 존재 | **없음 (스트리핑됨)** |
+| `Rotator` (Assembly-CSharp, Cube에만 붙임) | 존재, 동작 | **존재, 동작** |
+| `ColorAdjustments`, `ScreenSpaceLensFlare` 타입 | 존재 | 존재 (비교 대상 아님, 아래 참고) |
 
-- 콘텐츠(InDoor)에서만 쓰는 **SRP Core 패키지 타입**(`FreeCamera`, `ProbeVolume`)이 NoReport에서 **스트리핑되어 컴포넌트가 빠졌습니다.** 빌드는 성공하고, 런타임에 경고만 남습니다. `ProbeVolume`이 빠지면 APV 간접 조명이 동작하지 않게 됩니다(화면 비교는 미실측).
-- 반면 직접 만든 `Rotator`와 URP 볼륨 컴포넌트는 정보 전달 없이도 남았습니다. 이유는 확인하지 못했습니다. 사용자 어셈블리의 MonoBehaviour나 URP 쪽 보존 설정 때문일 가능성이 있습니다(추정).
-- 즉 **"직접 만든 스크립트는 괜찮았으니 안전하다"고 판단하면 안 됩니다.** 무엇이 지워지는지는 타입마다 다르고, 전달을 빠뜨려도 빌드 에러가 나지 않습니다.
+- **콘텐츠에서만 쓰는 패키지 타입**(`FreeCamera`, `ProbeVolume`)은 정보 전달이 없으면 **스트리핑되어 컴포넌트가 빠집니다.** 빌드는 성공하고 런타임에 경고만 남습니다. `ProbeVolume`이 빠지면 APV 간접 조명이 동작하지 않을 것으로 보이지만 화면 비교는 미실측입니다.
+- **직접 만든 `Rotator`는 전달 없이도 남았습니다.** 매뉴얼의 루트 마킹 규칙(Medium·High)에 "사용 중인 스크립트 어셈블리의 MonoBehaviour·ScriptableObject 파생 타입은 모두 보존"한다는 항목이 있어서, Assembly-CSharp가 Player에서 쓰이는 한 이 결과와 맞습니다.
+- 다만 **같은 규칙이 패키지 어셈블리도 포함한다고 적혀 있는데, 실측에서는 패키지의 MonoBehaviour(`FreeCamera`, `ProbeVolume`)가 지워졌습니다.** 문서 표와 실제 동작이 다르고, 원인은 확인하지 못했습니다.
+- `ColorAdjustments`, `ScreenSpaceLensFlare`는 URP의 후처리 코드가 이 타입들을 직접 참조하고 있을 가능성이 커서(추정) 콘텐츠 전용 여부를 판단하는 비교 대상으로 쓸 수 없습니다.
+- 정리: **"직접 만든 스크립트는 남고, 콘텐츠에서만 쓰는 패키지·엔진 타입이 지워진다."** 그래서 직접 만든 스크립트만 보고 "전달 없이도 괜찮다"고 판단하면 안 됩니다.
 
 #### CD4: Addressables 4.1.1에서 Content Directory 그룹과 AssetBundle 그룹을 섞으면 → **공유 의존성이 양쪽에 각각 빌드됨**
 `measure/cd4-addressables` 브랜치에서 측정했습니다(main에는 Addressables를 설치하지 않음).
@@ -560,12 +565,13 @@ Development Build로 `Builds/Player/`에 빌드하고 `%USERPROFILE%\AppData\Loc
 
 | 공유 의존성 | 콘텐츠 디렉터리 (`ContentLayout.json`) | AssetBundle (`buildlayout`) |
 |---|---|---|
-| `Lit.mat` | 포함 (파일 7) | 포함 (1,888 B) |
-| `Lit.shader` | 포함 (199.5 KB) | 포함 (343,484 B) |
+| `Lit.mat` | 포함 | 포함 |
+| `Lit.shader` | 포함 | 포함 |
 | `FallbackError.shader` / `FallbackShader.shader` | 포함 | 포함 |
 
 - 문서의 경고("공유 의존성이 두 번 빌드된다")가 **실측으로 확인**됐습니다.
-- 그런데 Addressables 빌드 레이아웃의 **`DuplicatedAssetCount`는 0**이었습니다. Addressables의 중복 집계는 번들끼리만 보고 **콘텐츠 디렉터리와의 중복은 세지 않는** 것으로 보입니다. 혼합 구성에서는 중복이 리포트에 드러나지 않으니 직접 확인해야 합니다.
+- 크기는 비교하지 않습니다. 두 리포트의 크기 값은 재는 기준이 다르고(콘텐츠 쪽 `ContentSizeSummary` 대 Addressables `buildlayout`의 `SerializedSize`), 셰이더 변형 구성도 빌드마다 달라질 수 있어서 같은 표에 놓으면 오해를 부릅니다. 측정 근거 파일에는 원값을 그대로 남겨 두었습니다.
+- Addressables 빌드 레이아웃의 **`DuplicatedAssetCount`는 0**이었습니다. 콘텐츠 디렉터리와 AssetBundle 양쪽에 같은 셰이더가 들어갔는데도 0이므로, **콘텐츠 디렉터리와의 중복은 이 리포트에 잡히지 않습니다.** 이 구성에는 AssetBundle이 하나뿐이라 번들끼리의 중복을 어떻게 세는지는 이번 측정으로 알 수 없습니다.
 - 덤: Addressables는 콘텐츠 디렉터리용 Root를 **자동 생성**합니다(`Library/BuildInstructions/ContentDirectoryRootAssets/AddressableRootAsset.asset`). Addressables 사용자는 Root Asset을 직접 만들 필요가 없습니다.
 
 ---
@@ -720,7 +726,9 @@ flowchart LR
 
 | 항목 | 비고 |
 |---|---|
-| ~~`ScriptsOnlyCache.yaml` 전달 유무에 따른 스트리핑 차이~~ | **해결(CD3)**: 미전달 시 `FreeCamera`, `ProbeVolume` 스트리핑. `Rotator`가 남은 이유는 미확인 |
+| ~~`ScriptsOnlyCache.yaml` 전달 유무에 따른 스트리핑 차이~~ | **해결(CD3)**: 미전달 시 `FreeCamera`, `ProbeVolume` 스트리핑, `Rotator`는 사용자 어셈블리 MonoBehaviour 보존 규칙으로 남음 |
+| 패키지 어셈블리의 MonoBehaviour가 문서 규칙과 달리 스트리핑된 이유 | 미확인 |
+| CD4b: Convert schema로 바꾼 그룹을 기존 Addressables 로드 코드 그대로 Player에서 로드할 수 있는가("코드 변경 없이 전환") | 미측정(빌드 산출물만 확인) |
 | 참조 카운트 단위(파일인지 오브젝트인지) | 비공개 |
 | `Loadable<T>`가 클래스인지 구조체인지 | 비어 있는 필드에서 `.Status` 접근 시 NRE → 클래스로 추정 |
 | ~~FBX 메시가 씬 파일에 합쳐진 배치 규칙~~ | **해결**: 정적 배칭으로 합쳐진 메시가 씬 소유로 저장됨(4.2) |

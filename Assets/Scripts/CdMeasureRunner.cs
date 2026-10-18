@@ -100,16 +100,22 @@ namespace ContentsDirectories
         // CD3: 콘텐츠 전용 타입이 Player에 남아 있는가 (스트리핑 비교용)
         IEnumerator Cd3()
         {
-            bool rotatorType = Type.GetType("ContentsDirectories.Rotator, Assembly-CSharp") != null;
-            bool colorAdj = Type.GetType("UnityEngine.Rendering.Universal.ColorAdjustments, Unity.RenderPipelines.Universal.Runtime") != null;
-            bool lensFlare = Type.GetType("UnityEngine.Rendering.Universal.ScreenSpaceLensFlare, Unity.RenderPipelines.Universal.Runtime") != null;
-            Log($"CD3 타입 존재: Rotator={rotatorType} ColorAdjustments={colorAdj} ScreenSpaceLensFlare={lensFlare}");
+            // 타입 이름을 상수 문자열로 쓰면 UnityLinker가 리플렉션 패턴으로 보고 타입을 남길 수 있어서,
+            // 이름을 런타임에 뒤집어 만들어 측정 코드가 결과에 영향을 주지 않게 한다.
+            Log("CD3 타입 존재: " + string.Join(" ", new[]
+            {
+                "prahSC-ylbmessA,rotatoR.seirotceriDstnetnoC",
+                "emitnuR.eroC.senilepiPredneR.ytinU,aremaCeerF.gniredneR.enignEytinU",
+                "emitnuR.eroC.senilepiPredneR.ytinU,emuloVeborP.gniredneR.enignEytinU",
+                "emitnuR.lasrevinU.senilepiPredneR.ytinU,stnemtsujdAroloC.lasrevinU.gniredneR.enignEytinU",
+                "emitnuR.lasrevinU.senilepiPredneR.ytinU,eralFsneLecapSneercS.lasrevinU.gniredneR.enignEytinU",
+            }.Select(r => { var n = Rev(r).Replace(",", ", "); return $"{n.Split(',')[0].Split('.').Last()}={Type.GetType(n) != null}"; })));
 
             var inst = Instantiate(m_Root.bonusPrefab.Load());
             var names = inst.GetComponents<Component>().Select(c => c == null ? "<missing>" : c.GetType().Name);
             float y0 = inst.transform.eulerAngles.y;
             yield return Frames(10);
-            Log($"CD3 Cube 컴포넌트: {string.Join(", ", names)} | GetComponent(\"Rotator\")={(inst.GetComponent("Rotator") != null)} | 회전 {y0:F1}→{inst.transform.eulerAngles.y:F1}");
+            Log($"CD3 Cube 컴포넌트: {string.Join(", ", names)} | GetComponent(Rotator)={(inst.GetComponent(Rev("rotatoR")) != null)} | 회전 {y0:F1}→{inst.transform.eulerAngles.y:F1}");
             Destroy(inst);
             yield return null;
             m_Root.bonusPrefab.Release();
@@ -161,6 +167,13 @@ namespace ContentsDirectories
                     names.Add(m.name);
             names.Sort();
             return $"content={names.Count} [{string.Join(",", names)}]";
+        }
+
+        static string Rev(string s)
+        {
+            var a = s.ToCharArray();
+            Array.Reverse(a);
+            return new string(a);
         }
 
         static IEnumerator Frames(int n)

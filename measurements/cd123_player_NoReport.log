@@ -1,17 +1,17 @@
 [CDM] baseline content=2 [Default-Skybox,Sprites-Default]
 Unloading 2 unused Assets / (0 B). Loaded Objects now: 2504.
-Total: 1.627200 ms (FindLiveObjects: 0.261100 ms CreateObjectMapping: 0.047400 ms MarkObjects: 1.290800 ms  DeleteObjects: 0.009900 ms)
-[CDM] CD1 아무것도 로드 안 함: UnloadUnusedAssets 2.29 ms (1프레임)
+Total: 1.850300 ms (FindLiveObjects: 0.244100 ms CreateObjectMapping: 0.032500 ms MarkObjects: 1.413100 ms  DeleteObjects: 0.144000 ms)
+[CDM] CD1 아무것도 로드 안 함: UnloadUnusedAssets 2.41 ms (1프레임)
 [CDM] CD1 Cube 핸들만 Load content=3 [Default-Skybox,Lit,Sprites-Default] status=Loaded
-Unloading 0 unused Assets / (0 B). Loaded Objects now: 2515.
-Total: 1.078100 ms (FindLiveObjects: 0.070300 ms CreateObjectMapping: 0.023400 ms MarkObjects: 0.970000 ms  DeleteObjects: 0.002300 ms)
-[CDM] CD1 Cube 핸들 보유 중: UnloadUnusedAssets 1.78 ms (1프레임)
+Unloading 0 unused Assets / (1.2 KB). Loaded Objects now: 2515.
+Total: 1.359200 ms (FindLiveObjects: 0.177800 ms CreateObjectMapping: 0.022600 ms MarkObjects: 1.144100 ms  DeleteObjects: 0.002400 ms)
+[CDM] CD1 Cube 핸들 보유 중: UnloadUnusedAssets 1.87 ms (1프레임)
 [CDM] CD1 UnloadUnused 후 content=3 [Default-Skybox,Lit,Sprites-Default] status=Loaded target==null:False
 [CDM] CD1 Cube Release 후 content=2 [Default-Skybox,Sprites-Default]
 [CDM] CD1 Gold 핸들만 Load content=3 [Default-Skybox,Gold,Sprites-Default]
-Unloading 0 unused Assets / (79 B). Loaded Objects now: 2509.
-Total: 1.041100 ms (FindLiveObjects: 0.087000 ms CreateObjectMapping: 0.023600 ms MarkObjects: 0.915900 ms  DeleteObjects: 0.002200 ms)
-[CDM] CD1 Gold 핸들 보유 중: UnloadUnusedAssets 1.60 ms (1프레임)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 2509.
+Total: 1.143300 ms (FindLiveObjects: 0.111300 ms CreateObjectMapping: 0.031600 ms MarkObjects: 0.986100 ms  DeleteObjects: 0.001900 ms)
+[CDM] CD1 Gold 핸들 보유 중: UnloadUnusedAssets 1.79 ms (1프레임)
 [CDM] CD1 UnloadUnused 후 content=3 [Default-Skybox,Gold,Sprites-Default] target==null:False
 [CDM] CD1 Gold Release 후 content=2 [Default-Skybox,Sprites-Default]
 The referenced script (UnityEngine.Rendering.FreeCamera) on this Behaviour is missing!
@@ -22,7 +22,7 @@ The referenced script on this Behaviour (Game Object 'Adaptive Probe Volume') is
 [CDM] CD2-1 Gold Load content=8 [Black,Default-Skybox,Emissive,Gold,Ground,Metal_Black,Sprites-Default,White] same=True id=2646:256
 [CDM] CD2-1 씬 언로드 후 content=3 [Default-Skybox,Gold,Sprites-Default] gold 살아있음:True
 [CDM] CD2-1 Gold Release 후 content=2 [Default-Skybox,Sprites-Default]
-[CDM] CD2-2 Gold Load content=3 [Default-Skybox,Gold,Sprites-Default] id=2651:768
+[CDM] CD2-2 Gold Load content=3 [Default-Skybox,Gold,Sprites-Default] id=2652:768
 The referenced script (UnityEngine.Rendering.FreeCamera) on this Behaviour is missing!
 The referenced script on this Behaviour (Game Object 'Main Camera') is missing!
 The referenced script (UnityEngine.Rendering.ProbeVolume) on this Behaviour is missing!
@@ -30,6 +30,6 @@ The referenced script on this Behaviour (Game Object 'Adaptive Probe Volume') is
 [CDM] CD2-2 씬 로드 content=8 [Black,Default-Skybox,Emissive,Gold,Ground,Metal_Black,Sprites-Default,White] same=True
 [CDM] CD2-2 Gold Release 후(씬 유지) content=8 [Black,Default-Skybox,Emissive,Gold,Ground,Metal_Black,Sprites-Default,White] sceneGold 살아있음:True
 [CDM] CD2-2 씬 언로드 후 content=2 [Default-Skybox,Sprites-Default]
-[CDM] CD3 타입 존재: Rotator=True ColorAdjustments=True ScreenSpaceLensFlare=True
-[CDM] CD3 Cube 컴포넌트: Transform, MeshFilter, MeshRenderer, BoxCollider, Rotator | GetComponent("Rotator")=True | 회전 0.0→0.6
+[CDM] CD3 타입 존재: Rotator=True FreeCamera=False ProbeVolume=False ColorAdjustments=True ScreenSpaceLensFlare=True
+[CDM] CD3 Cube 컴포넌트: Transform, MeshFilter, MeshRenderer, BoxCollider, Rotator | GetComponent(Rotator)=True | 회전 0.0→0.5
 [CDM] done

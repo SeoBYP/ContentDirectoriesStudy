@@ -604,7 +604,30 @@ E1′(인스턴스가 살아 있는데 핸들만 `Release`)을 Player에서 재�
 - 즉 6.7과 7.2에서 "분홍색이 아니라 사라진다"고 적은 것은 **GRD가 켜진 이 프로젝트 설정에서의 결과**였습니다. GRD가 꺼진 프로젝트에서는 일반적인 "머티리얼 없음" 표시(마젠타)가 나옵니다. GRD가 null 머티리얼 렌더러를 그리기 대상에서 빼는 것으로 보이지만 내부 이유는 확인하지 못했습니다(추정).
 - 스크린샷: `measurements/cd56/CD6_before_*.png`, `CD6_after_*.png`
 
-#### CD5: 스트리핑 정보를 안 넘기면 APV 간접 조명이 깨져 보이는가 → **이 프로젝트로는 판단 불가 (차이는 잡음 수준)**
+#### CD5: 스트리핑 정보를 안 넘기면 APV 간접 조명이 깨지는가 → **APV는 정상 동작 (`ProbeVolume` 컴포넌트가 지워져도)**
+두 단계로 측정했습니다. 1차는 원래 설정(APV 미사용), 2차는 `measure/cd5-apv` 브랜치에서 **APV를 켜고 InDoor에 APV를 베이크한 뒤** 다시 측정했습니다.
+
+**2차: APV 켜고 베이크한 뒤 (`measurements/cd5_apv.log`, `measurements/cd5_apv/`)**
+- 준비: `PC_RPAsset`·`Mobile_RPAsset`의 `m_LightProbeSystem`을 1(Probe Volumes)로 바꾸고, InDoor용 베이킹 세트(`InDoor Baking Set.asset`)를 만들어 `Lightmapping.Bake()`(39.9초). 베이크 데이터 `InDoor Baking Set*.bytes`(약 2.2 MB)가 콘텐츠 디렉터리 빌드에 포함된 것을 `ContentLayout.json`으로 확인.
+
+| Player | `ProbeVolume` 컴포넌트 | 런타임 APV 상태 (`ProbeReferenceVolume.instance`) | 평균 밝기 |
+|---|---|---|---|
+| Normal (2회) | 있음 | `isInitialized=True`, `bakingSet=InDoor Baking Set`, `dataLoaded=True` | 154.01 / 153.99 |
+| NoReport (2회) | **없음** (`missingScripts=2`) | **`isInitialized=True`, `bakingSet=InDoor Baking Set`, `dataLoaded=True`** | 154.02 / 153.95 |
+
+| 이미지 비교 | 평균 차이 | 차이 > 8인 픽셀 |
+|---|---|---|
+| 같은 빌드 반복: Normal 1 vs 2 | 0.254 | 0.462% |
+| 같은 빌드 반복: NoReport 1 vs 2 | 0.200 | 0.435% |
+| Normal vs NoReport (1회끼리 / 2회끼리) | 0.129 / 0.207 | 0.042% / 0.291% |
+| 참고: APV 미사용(1차 Normal) vs APV 사용(2차 Normal) | 0.308 | 0.438% |
+
+- **`ProbeVolume` 컴포넌트가 스트리핑되어도 APV는 초기화되고 베이크 데이터도 로드됐습니다.** 런타임 데이터는 남아 있는 `ProbeVolumePerSceneData`와 베이킹 세트를 통해 들어오고, `ProbeVolume` 컴포넌트는 베이크할 영역을 지정하는 저작용 컴포넌트라 런타임에는 영향이 없는 것으로 보입니다(추정).
+- 다만 화면 비교의 판별력은 약합니다. 이 씬에서는 **APV를 켰을 때와 껐을 때의 차이도 반복 잡음 수준**이라(0.438% 대 0.435~0.462%), 간접 조명이 화면에 주는 영향 자체가 작습니다. 그래서 "깨지지 않는다"의 근거는 화면이 아니라 **런타임 APV 상태 로그**입니다.
+- 그래도 `ProbeVolume`이 빠진 Player에서 씬을 다시 베이크하거나 편집하는 일은 없으니, Player에서의 결론은 **"APV는 영향 없음, `FreeCamera` 같은 동작 컴포넌트는 빠짐"** 입니다.
+- Normal 2회차 실행은 시작 직후 멈춤이 2번 반복된 뒤 3번째에 정상 측정됐습니다(아래 관찰 참고).
+
+**1차: 원래 설정(APV 미사용)**
 Normal과 NoReport Player에서 InDoor 씬을 씬 자체 카메라로 찍어 픽셀 단위로 비교했습니다(둘 다 GRD 켬, 960×540).
 
 | 비교 | 평균 차이 | 차이 > 8인 픽셀 |
@@ -615,12 +638,12 @@ Normal과 NoReport Player에서 InDoor 씬을 씬 자체 카메라로 찍어 픽
 | Normal vs NoReport (2회끼리) | 0.181 | 0.092% |
 
 - NoReport에서는 `ProbeVolume` 컴포넌트가 실제로 빠졌지만(`missingScripts=2`, 타입 목록에서 `FreeCamera`, `ProbeVolume` 없음), 두 빌드의 차이는 **같은 빌드를 반복해서 찍은 차이와 같은 수준**이었습니다. 평균 밝기도 153.92~154.07로 같습니다.
-- 다만 이 프로젝트의 `PC_RPAsset`은 `m_LightProbeSystem: 0`(Light Probe Groups)이라 **APV를 쓰지 않습니다.** 그래서 `ProbeVolume`이 지워져도 영향이 없는 게 당연하고, "APV를 쓰는 프로젝트에서 깨지는가"는 이 측정으로 답할 수 없습니다. 답하려면 APV를 켜고 InDoor에 APV를 베이크한 뒤 같은 비교를 해야 합니다(미실측).
+- 다만 이 프로젝트의 `PC_RPAsset`은 `m_LightProbeSystem: 0`(Light Probe Groups)이라 **APV를 쓰지 않습니다.** 그래서 `ProbeVolume`이 지워져도 영향이 없는 게 당연하고, "APV를 쓰는 프로젝트에서 깨지는가"는 이 측정으로 답할 수 없습니다. 그래서 위의 2차 측정을 했습니다.
 - 참고: `ProbeVolumePerSceneData`는 NoReport에서도 남아 있었습니다.
 - 스크린샷과 차이 이미지: `measurements/cd56/CD5_indoor_*.png`, `diff_*.png`
 
 #### 측정 중 관찰: Player가 시작 직후 멈추는 경우
-GRD가 켜진 Player에서 `GPU Resident Drawer created.` 로그 직후 측정이 시작되지 않고 멈춘 경우가 총 3번 있었습니다(CD4b A 2회, CD5·6 Normal 첫 실행 1회). 같은 실행 파일을 다시 실행하면 정상이었습니다. 콘텐츠 디렉터리 때문인지, 측정 코드나 환경 때문인지는 확인하지 못했습니다.
+GRD가 켜진 Player에서 `GPU Resident Drawer created.` 로그 직후 측정이 시작되지 않고 멈춘 경우가 총 5번 있었습니다(CD4b A 2회, CD5·6 Normal 첫 실행 1회, CD5 APV Normal 2회차 2회). 같은 실행 파일을 다시 실행하면 정상이었습니다. 콘텐츠 디렉터리 때문인지, 측정 코드나 환경 때문인지는 확인하지 못했습니다.
 
 ---
 
@@ -786,9 +809,9 @@ flowchart LR
 | 아카이브 옵션(`content0.archive`)의 크기·로딩 속도 차이 | 미측정 |
 | ~~`Loadable<Material>`로 로드한 머티리얼과 씬의 같은 머티리얼 공유 여부~~ | **해결(CD2)**: 같은 객체 |
 | ~~`Resources.UnloadUnusedAssets()`가 콘텐츠 에셋에 영향을 주는지~~ | **해결(CD1)**: 핸들이 잡은 에셋은 내리지 않음 |
-| NoReport Player에서 APV 간접 조명이 실제로 깨져 보이는지 | CD5: 이 프로젝트는 APV 미사용(`m_LightProbeSystem: 0`)이라 차이는 잡음 수준, 판단 불가. APV를 켜고 베이크한 뒤 재측정 필요 |
+| ~~NoReport Player에서 APV 간접 조명이 깨지는지~~ | **해결(CD5 2차)**: APV를 켜고 베이크해도 NoReport에서 APV 초기화·데이터 로드 정상. 화면 차이는 잡음 수준 |
 | ~~E1′에서 분홍색이 아니라 사라진 이유~~ | **해결(CD6)**: GPU Resident Drawer 켬 → 사라짐, 끔 → 마젠타 |
-| GRD 켠 Player가 시작 직후 가끔 멈추는 원인 | 미확인 (3회 관찰, 재실행 시 정상) |
+| GRD 켠 Player가 시작 직후 가끔 멈추는 원인 | 미확인 (5회 관찰, 재실행 시 정상) |
 | `Shader.Find`가 콘텐츠 셰이더를 찾는지 | 미확인 |
 | 콘텐츠만 다시 빌드해서 Player의 StreamingAssets만 교체하는 방식 | 미확인 |
 | 모바일 `persistentDataPath`에서 등록 가능 여부 | 미확인 |

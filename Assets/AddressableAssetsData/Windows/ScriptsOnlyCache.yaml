@@ -1,0 +1,16 @@
+ScriptsOnlyBuild:
+  usedScripts:
+    Assembly-CSharp.dll:
+    - ContentsDirectories.Rotator
+    Unity.Addressables.dll:
+    - UnityEngine.AddressableAssets.ResourceProviders.AddressableRootAsset
+  serializedClasses:
+    UnityEngine.CoreModule:
+    - Unity.Loading.LoadableObjectId
+  methodsToPreserve: []
+  sceneClasses: {}
+  scriptHashData: []
+  platform: 19
+  scenePathNames: []
+  nativeClasses: 0000000030000000120000008200000031000000730000000400000002000000210000000100000017000000190000007200000008000000380000004100000015000000i
+  playerPath: 

@@ -352,7 +352,7 @@ MonoBehaviour:
   lowestSubdivLevelOverride: 0
   highestSubdivLevelOverride: 7
   overridesSubdivLevels: 0
-  mightNeedRebaking: 1
+  mightNeedRebaking: 0
   cachedTransform:
     e00: 1
     e01: 0
@@ -450,7 +450,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a83d2f7ae04ab6f4f99b0d85377be998, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  serializedBakingSet: {fileID: 0}
+  serializedBakingSet: {fileID: 11400000, guid: 2b254601981004443869c6af8959911e, type: 2}
   sceneGUID: 988cbc230d1f5174ab9aa0a8beda1dfe
   obsoleteAsset: {fileID: 0}
   obsoleteCellSharedDataAsset: {fileID: 0}

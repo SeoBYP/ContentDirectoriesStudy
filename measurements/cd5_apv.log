@@ -1,0 +1,37 @@
+[CDAPV] Assets/Settings/PC_RPAsset.asset m_LightProbeSystem=1
+[CDAPV] Assets/Settings/Mobile_RPAsset.asset m_LightProbeSystem=1
+[CDAPV] bakingSet=Assets/Scenes/InDoor/InDoor Baking Set.asset sceneAdded=True probeVolumes=1
+[CDAPV] Lightmapping.Bake ok=True 39.9s files=[BackgroundMesh.fbx, Black.mat, Emissive.mat, GlobalVolumeProfile.asset, Gold.mat, Ground.mat, InDoor Baking Set-Default.CellData.bytes, InDoor Baking Set-Default.CellOptionalData.bytes, InDoor Baking Set-Default.CellProbeOcclusionData.bytes, InDoor Baking Set.asset, InDoor Baking Set.CellBricksData.bytes, InDoor Baking Set.CellSharedData.bytes, InDoor Baking Set.CellSupportData.bytes, LightingData.asset, Lit.mat, Metal_Black.mat, ReflectionProbe-0.exr, SamplesFixture.fbx, SamplesFloorSpotlight.fbx, SamplesSpotlightModel.fbx, UnityMaterialBall.fbx,
+[CDM] Player Builds/Measure/Normal: Succeeded, 950415710 bytes, stripping=High, skipReport=False
+[CDM] Player Builds/Measure/NoReport: Succeeded, 950223396 bytes, stripping=High, skipReport=True
+===== Normal_apv_1
+[CDM] pipeline=PC_RPAsset gpuResidentDrawerMode=InstancedDrawing
+[CDM] CD5 sceneCam=Main Camera missingScripts=0 types=[AudioListener,BoxCollider,Camera,FreeCamera,Light,MeshFilter,MeshRenderer,ProbeVolume,ProbeVolumePerSceneData,ReflectionProbe,Transform,UniversalAdditionalCameraData,UniversalAdditionalLightData,Volume]
+[CDM] CD5 APV isInitialized=True bakingSet=InDoor Baking Set dataLoaded=True
+[CDM] CD5_indoor 960x540 meanLuma=154.01
+===== Normal_apv_2_try3
+[CDM] pipeline=PC_RPAsset gpuResidentDrawerMode=InstancedDrawing
+[CDM] CD5 sceneCam=Main Camera missingScripts=0 types=[AudioListener,BoxCollider,Camera,FreeCamera,Light,MeshFilter,MeshRenderer,ProbeVolume,ProbeVolumePerSceneData,ReflectionProbe,Transform,UniversalAdditionalCameraData,UniversalAdditionalLightData,Volume]
+[CDM] CD5 APV isInitialized=True bakingSet=InDoor Baking Set dataLoaded=True
+[CDM] CD5_indoor 960x540 meanLuma=153.99
+===== NoReport_apv_1
+[CDM] pipeline=PC_RPAsset gpuResidentDrawerMode=InstancedDrawing
+The referenced script (UnityEngine.Rendering.FreeCamera) on this Behaviour is missing!
+The referenced script (UnityEngine.Rendering.ProbeVolume) on this Behaviour is missing!
+[CDM] CD5 sceneCam=Main Camera missingScripts=2 types=[AudioListener,BoxCollider,Camera,Light,MeshFilter,MeshRenderer,ProbeVolumePerSceneData,ReflectionProbe,Transform,UniversalAdditionalCameraData,UniversalAdditionalLightData,Volume]
+[CDM] CD5 APV isInitialized=True bakingSet=InDoor Baking Set dataLoaded=True
+[CDM] CD5_indoor 960x540 meanLuma=154.02
+===== NoReport_apv_2
+[CDM] pipeline=PC_RPAsset gpuResidentDrawerMode=InstancedDrawing
+The referenced script (UnityEngine.Rendering.FreeCamera) on this Behaviour is missing!
+The referenced script (UnityEngine.Rendering.ProbeVolume) on this Behaviour is missing!
+[CDM] CD5 sceneCam=Main Camera missingScripts=2 types=[AudioListener,BoxCollider,Camera,Light,MeshFilter,MeshRenderer,ProbeVolumePerSceneData,ReflectionProbe,Transform,UniversalAdditionalCameraData,UniversalAdditionalLightData,Volume]
+[CDM] CD5 APV isInitialized=True bakingSet=InDoor Baking Set dataLoaded=True
+[CDM] CD5_indoor 960x540 meanLuma=153.95
+===== 참고: Normal_apv_2는 시작 직후 정지 2회 후 3회차에 정상 (player_cd5apv_Normal_apv_2.log)
+===== 이미지 비교 (평균차 / 차이>8 픽셀)
+Legacy(Normal) vs APV(Normal 1): 0.308 / 0.438%
+Normal APV 1 vs 2: 0.254 / 0.462%
+NoReport APV 1 vs 2: 0.200 / 0.435%
+Normal 1 vs NoReport 1: 0.129 / 0.042%
+Normal 2 vs NoReport 2: 0.207 / 0.291%

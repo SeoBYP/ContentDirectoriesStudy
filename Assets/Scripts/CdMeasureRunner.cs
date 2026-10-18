@@ -171,6 +171,8 @@ namespace ContentsDirectories
             var compNames = scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<Component>(true)).Where(c => c != null).Select(c => c.GetType().Name).Distinct().OrderBy(n => n);
             Log($"CD5 sceneCam={(sceneCam != null ? sceneCam.name : "없음")} missingScripts={missing} types=[{string.Join(",", compNames)}]");
             yield return Frames(30); // 조명·프로브 적용 대기
+            var prv = ProbeReferenceVolume.instance;
+            Log($"CD5 APV isInitialized={prv.isInitialized} bakingSet={(prv.currentBakingSet != null ? prv.currentBakingSet.name : "null")} dataLoaded={prv.DataHasBeenLoaded()}");
             yield return Shot("CD5_indoor", sceneCam != null ? sceneCam : sampleCam, null);
             if (sampleCam != null) sampleCam.gameObject.SetActive(true);
             yield return UnloadScene(scene);

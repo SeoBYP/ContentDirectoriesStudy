@@ -1,0 +1,55 @@
+===== Normal_grdOn_r1
+[CDM] pipeline=PC_RPAsset gpuResidentDrawerMode=InstancedDrawing
+[CDM] baseline content=2 [Default-Skybox,Sprites-Default]
+[CDM] CD6_before 960x540 center=(480,270) rgb=(144,137,134)
+[CDM] CD6 Release 후 sharedMaterial==null:True renderer.enabled:True content=2 [Default-Skybox,Sprites-Default]
+[CDM] CD6_after 960x540 center=(480,270) rgb=(204,216,216)
+[CDM] CD5 sceneCam=Main Camera missingScripts=0 types=[AudioListener,BoxCollider,Camera,FreeCamera,Light,MeshFilter,MeshRenderer,ProbeVolume,ProbeVolumePerSceneData,ReflectionProbe,Transform,UniversalAdditionalCameraData,UniversalAdditionalLightData,Volume]
+[CDM] CD5_indoor 960x540 meanLuma=154.04
+[CDM] done
+===== Normal_grdOff
+[CDM] pipeline=PC_RPAsset gpuResidentDrawerMode=Disabled
+[CDM] baseline content=2 [Default-Skybox,Sprites-Default]
+[CDM] CD6_before 960x540 center=(480,270) rgb=(142,135,132)
+[CDM] CD6 Release 후 sharedMaterial==null:True renderer.enabled:True content=2 [Default-Skybox,Sprites-Default]
+[CDM] CD6_after 960x540 center=(480,270) rgb=(209,1,209)
+[CDM] CD5 sceneCam=Main Camera missingScripts=0 types=[AudioListener,BoxCollider,Camera,FreeCamera,Light,MeshFilter,MeshRenderer,ProbeVolume,ProbeVolumePerSceneData,ReflectionProbe,Transform,UniversalAdditionalCameraData,UniversalAdditionalLightData,Volume]
+[CDM] CD5_indoor 960x540 meanLuma=153.99
+[CDM] done
+===== NoReport_grdOn
+[CDM] pipeline=PC_RPAsset gpuResidentDrawerMode=InstancedDrawing
+[CDM] baseline content=2 [Default-Skybox,Sprites-Default]
+[CDM] CD6_before 960x540 center=(480,270) rgb=(144,136,133)
+[CDM] CD6 Release 후 sharedMaterial==null:True renderer.enabled:True content=2 [Default-Skybox,Sprites-Default]
+[CDM] CD6_after 960x540 center=(480,270) rgb=(204,216,216)
+The referenced script (UnityEngine.Rendering.FreeCamera) on this Behaviour is missing!
+The referenced script on this Behaviour (Game Object 'Main Camera') is missing!
+The referenced script (UnityEngine.Rendering.ProbeVolume) on this Behaviour is missing!
+The referenced script on this Behaviour (Game Object 'Adaptive Probe Volume') is missing!
+[CDM] CD5 sceneCam=Main Camera missingScripts=2 types=[AudioListener,BoxCollider,Camera,Light,MeshFilter,MeshRenderer,ProbeVolumePerSceneData,ReflectionProbe,Transform,UniversalAdditionalCameraData,UniversalAdditionalLightData,Volume]
+[CDM] CD5_indoor 960x540 meanLuma=154.07
+[CDM] done
+===== Normal_grdOn_run2
+[CDM] pipeline=PC_RPAsset gpuResidentDrawerMode=InstancedDrawing
+[CDM] baseline content=2 [Default-Skybox,Sprites-Default]
+[CDM] CD6_before 960x540 center=(480,270) rgb=(144,137,134)
+[CDM] CD6 Release 후 sharedMaterial==null:True renderer.enabled:True content=2 [Default-Skybox,Sprites-Default]
+[CDM] CD6_after 960x540 center=(480,270) rgb=(204,216,216)
+[CDM] CD5 sceneCam=Main Camera missingScripts=0 types=[AudioListener,BoxCollider,Camera,FreeCamera,Light,MeshFilter,MeshRenderer,ProbeVolume,ProbeVolumePerSceneData,ReflectionProbe,Transform,UniversalAdditionalCameraData,UniversalAdditionalLightData,Volume]
+[CDM] CD5_indoor 960x540 meanLuma=153.99
+[CDM] done
+===== NoReport_grdOn_run2
+[CDM] pipeline=PC_RPAsset gpuResidentDrawerMode=InstancedDrawing
+[CDM] baseline content=2 [Default-Skybox,Sprites-Default]
+[CDM] CD6_before 960x540 center=(480,270) rgb=(144,137,134)
+[CDM] CD6 Release 후 sharedMaterial==null:True renderer.enabled:True content=2 [Default-Skybox,Sprites-Default]
+[CDM] CD6_after 960x540 center=(480,270) rgb=(204,216,216)
+The referenced script (UnityEngine.Rendering.FreeCamera) on this Behaviour is missing!
+The referenced script on this Behaviour (Game Object 'Main Camera') is missing!
+The referenced script (UnityEngine.Rendering.ProbeVolume) on this Behaviour is missing!
+The referenced script on this Behaviour (Game Object 'Adaptive Probe Volume') is missing!
+[CDM] CD5 sceneCam=Main Camera missingScripts=2 types=[AudioListener,BoxCollider,Camera,Light,MeshFilter,MeshRenderer,ProbeVolumePerSceneData,ReflectionProbe,Transform,UniversalAdditionalCameraData,UniversalAdditionalLightData,Volume]
+[CDM] CD5_indoor 960x540 meanLuma=153.92
+[CDM] done
+===== 참고: player_cd56_Normal_grdOn (첫 실행)은 'GPU Resident Drawer created.' 이후 baseline 전에 정지, 150초 타임아웃
+===== PC_RPAsset: m_GPUResidentDrawerMode: 1, m_LightProbeSystem: 0

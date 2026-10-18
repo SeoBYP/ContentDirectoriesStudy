@@ -34,7 +34,7 @@ Unity 6.6에서 AssetBundle을 대체하려고 도입된 **Content Directories**
 - **빌드**: Root에서 GUID 참조를 재귀적으로 따라가 에셋을 모으고, 에셋 하나를 해시 이름의 파일 하나로 저장한다. 같은 빌드 안에서는 자동으로 중복이 제거된다. 변경 없는 재빌드는 64.9초 → 8.9초(실측).
 - **런타임**: 등록하면 Root와 실선 의존성만 올라오고(Direct 6.93 KB / Total 2.85 MB), 점선(`Loadable`, `LoadableSceneId`)은 필요할 때 로드한다. 해제는 **핸들 단위 참조 카운트**이고 마지막 참조가 사라진 **1프레임 뒤** 언로드된다(에디터·Player 동일, 실측).
 - **파일 구조**: AssetBundle과 같은 직렬화 포맷(직렬화 파일 + `.resS`)이지만 번들로 묶지 않고 에셋마다 낱개 파일로 둔다. "무엇을 열지"는 json 매니페스트(파일 → 파일 실선, 해시 파일 이름), "연 파일의 내용과 포인터 연결"은 `.cf`가 담당한다(실측).
-- **가장 큰 한계**: 로컬 전용(원격 배포·패치 없음), 빌드끼리 중복 제거 불가, 그리고 **`Instantiate`한 인스턴스는 참조로 세지 않아서** 사용 중에 해제하면 인스턴스가 경고 없이 화면에서 사라진다(실측).
+- **가장 큰 한계**: 로컬 전용(원격 배포·패치 없음), 빌드끼리 중복 제거 불가, 그리고 **`Instantiate`한 인스턴스는 참조로 세지 않아서** 사용 중에 해제하면 머티리얼이 경고 없이 null이 되어 인스턴스가 사라지거나(GPU Resident Drawer 켬) 마젠타로 보인다(끔)(실측).
 - **결론**: 로컬 콘텐츠에 한해서는 AssetBundle의 빌드 내 중복, 번들 단위 과보유, 수동 의존 관리 문제를 구조적으로 해결했다. 원격 배포가 필요하면 현재(6.6)는 AssetBundle(Addressables 원격 그룹)이 필요하다. Unity는 **Unity 7 세대에 아티팩트 단위 OTA 배포와 차분 업데이트**를 계획 중이며 2027년에 더 공개한다고 밝혔다(블로그).
 
 ---
@@ -445,7 +445,7 @@ Cube의 `Lit.mat`(파일 18)과 InDoor 머티리얼 6개(파일 1, 6, 9, 10, 12,
 |---|---|---|---|---|
 | Release +0프레임 | 정상 | 정상 | `Lit` | 10 |
 | Release +1프레임 | **가짜 null** | **살아 있음** | **진짜 null**(접근 시 `NullReferenceException`) | **9** |
-| 화면 | | **Cube가 사라짐(분홍색 아님)** | | |
+| 화면 | | **Cube가 사라짐(분홍색 아님)** ※ GPU Resident Drawer가 켜진 이 프로젝트 기준. GRD를 끄면 마젠타(7.4 CD6) | | |
 | 해제된 원본으로 `Instantiate` | `MissingReferenceException: The object of type 'UnityEngine.GameObject' has been destroyed…` | | | |
 
 ```mermaid
@@ -492,7 +492,7 @@ Development Build로 `Builds/Player/`에 빌드하고 `%USERPROFILE%\AppData\Loc
 | E3 (2회 반복) | 핸들별, 1프레임 지연, 중복 Release 안전 | **동일** |
 | E3b | 핸들마다 1개, 객체 공유 | **동일** |
 | E1′ 수치 | 원본 가짜 null, 머티리얼 null, −1 | **동일** |
-| E1′ 화면 | Cube 사라짐 | **Cube 사라짐** |
+| E1′ 화면 (GRD 켬) | Cube 사라짐 | **Cube 사라짐** (GRD 끄면 마젠타, CD6) |
 | E1′ 해제된 원본 재사용 에러 | `MissingReferenceException`("이미 파괴됨") | **`ArgumentNullException: Value cannot be null. Parameter name: data`** |
 | InDoor 포스트 효과(렌즈 플레어, 색 보정) | 기준 | **동일** |
 
@@ -590,6 +590,37 @@ A와 B의 런타임 결과는 같았습니다. 컴포넌트 `[Transform, MeshFil
 - **"코드 변경 없이 전환"은 로컬 그룹 + Default Build Script 조건에서 실측으로 확인**됐습니다.
 - 함정: 4.1.1에서 UI 이름 "Default Build Script"는 `BuildScriptSchemaDriven`이고, `BuildScriptPackedMode`의 이름은 "Build Script (AssetBundles)"입니다(그런데 `BuildScriptPackedMode`의 `CreateAssetMenu` 경로는 ".../Default Build Script"라 헷갈립니다). 활성 빌더가 AssetBundle 전용이면 변환된 그룹은 **경고 없이 아무것도 빌드되지 않고**, 런타임에서야 키를 못 찾습니다. 새로 만든 4.1.1 설정은 `BuildScriptSchemaDriven`을 활성으로 지정합니다(패키지 소스 확인). 2.x에서 올린 기존 프로젝트의 활성 빌더가 어떻게 되는지는 확인하지 못했습니다.
 - 참고: 측정 초기 코드(`yield return` 초기화 핸들)로는 A Player가 초기화 단계에서 2회 멈췄고, 완료를 프레임마다 확인하는 코드로 바꾼 뒤에는 정상이었습니다. 원인은 확인하지 못했고, 위 결과는 모두 바꾼 코드로 A와 B를 다시 빌드해 잰 값입니다.
+
+#### CD6: E1′의 "사라짐"은 GPU Resident Drawer 때문인가 → **그렇다. GRD를 끄면 마젠타로 보임**
+E1′(인스턴스가 살아 있는데 핸들만 `Release`)을 Player에서 재현하고, Cube 중심 픽셀을 `ScreenCapture.CaptureScreenshotAsTexture()`로 기록했습니다. GRD는 `-grd off` 인자일 때 첫 렌더 전에 `UniversalRenderPipelineAsset.gpuResidentDrawerMode = Disabled`로 바꿨습니다. 이 프로젝트의 기본값은 `PC_RPAsset`의 `InstancedDrawing`(켜짐)입니다.
+
+| 조건 | Release 전 중심 픽셀 | Release 후 중심 픽셀 | 화면 |
+|---|---|---|---|
+| Normal, GRD 켬(기본) | rgb(144,137,134) Cube | rgb(204,216,216) **배경** | Cube가 사라짐 |
+| Normal, **GRD 끔** | rgb(142,135,132) Cube | **rgb(209,1,209) 마젠타** | Cube가 분홍색으로 보임 |
+| NoReport, GRD 켬 | rgb(144,136,133) Cube | rgb(204,216,216) 배경 | Cube가 사라짐 |
+
+- 세 경우 모두 Release 후 `sharedMaterial == null: True`, `renderer.enabled: True`로 **데이터 상태는 같고, 그리는 방식만 다릅니다.**
+- 즉 6.7과 7.2에서 "분홍색이 아니라 사라진다"고 적은 것은 **GRD가 켜진 이 프로젝트 설정에서의 결과**였습니다. GRD가 꺼진 프로젝트에서는 일반적인 "머티리얼 없음" 표시(마젠타)가 나옵니다. GRD가 null 머티리얼 렌더러를 그리기 대상에서 빼는 것으로 보이지만 내부 이유는 확인하지 못했습니다(추정).
+- 스크린샷: `measurements/cd56/CD6_before_*.png`, `CD6_after_*.png`
+
+#### CD5: 스트리핑 정보를 안 넘기면 APV 간접 조명이 깨져 보이는가 → **이 프로젝트로는 판단 불가 (차이는 잡음 수준)**
+Normal과 NoReport Player에서 InDoor 씬을 씬 자체 카메라로 찍어 픽셀 단위로 비교했습니다(둘 다 GRD 켬, 960×540).
+
+| 비교 | 평균 차이 | 차이 > 8인 픽셀 |
+|---|---|---|
+| 같은 빌드 반복: Normal 1회 vs 2회 | 0.136 | 0.038% |
+| 같은 빌드 반복: NoReport 1회 vs 2회 | 0.255 | 0.560% |
+| Normal vs NoReport (1회끼리) | 0.328 | 0.533% |
+| Normal vs NoReport (2회끼리) | 0.181 | 0.092% |
+
+- NoReport에서는 `ProbeVolume` 컴포넌트가 실제로 빠졌지만(`missingScripts=2`, 타입 목록에서 `FreeCamera`, `ProbeVolume` 없음), 두 빌드의 차이는 **같은 빌드를 반복해서 찍은 차이와 같은 수준**이었습니다. 평균 밝기도 153.92~154.07로 같습니다.
+- 다만 이 프로젝트의 `PC_RPAsset`은 `m_LightProbeSystem: 0`(Light Probe Groups)이라 **APV를 쓰지 않습니다.** 그래서 `ProbeVolume`이 지워져도 영향이 없는 게 당연하고, "APV를 쓰는 프로젝트에서 깨지는가"는 이 측정으로 답할 수 없습니다. 답하려면 APV를 켜고 InDoor에 APV를 베이크한 뒤 같은 비교를 해야 합니다(미실측).
+- 참고: `ProbeVolumePerSceneData`는 NoReport에서도 남아 있었습니다.
+- 스크린샷과 차이 이미지: `measurements/cd56/CD5_indoor_*.png`, `diff_*.png`
+
+#### 측정 중 관찰: Player가 시작 직후 멈추는 경우
+GRD가 켜진 Player에서 `GPU Resident Drawer created.` 로그 직후 측정이 시작되지 않고 멈춘 경우가 총 3번 있었습니다(CD4b A 2회, CD5·6 Normal 첫 실행 1회). 같은 실행 파일을 다시 실행하면 정상이었습니다. 콘텐츠 디렉터리 때문인지, 측정 코드나 환경 때문인지는 확인하지 못했습니다.
 
 ---
 
@@ -726,7 +757,7 @@ flowchart LR
 ### 10.3 런타임 수명 관리
 12. **`Loadable` 인스턴스는 참조 1개만**: 공유하면 첫 `Release()`가 모두에게 영향(문서, 실측).
 13. **RAII 아님**: 파괴돼도 `Release()`를 부르지 않으면 계속 잡고 있음.
-14. **인스턴스는 참조 카운트에 포함되지 않음**: 사용 중 해제 시 인스턴스가 **경고 없이 화면에서 사라짐**(에디터·Player 동일, 실측).
+14. **인스턴스는 참조 카운트에 포함되지 않음**: 사용 중 해제 시 머티리얼이 경고 없이 null이 됨. 화면에서는 GPU Resident Drawer가 켜져 있으면 **사라지고**, 꺼져 있으면 **마젠타**로 보임(에디터·Player, 실측 E1′·CD6).
 15. **Player에서는 진단이 더 어려움**: 해제된 원본 재사용 시 에디터는 `MissingReferenceException`, Player는 `ArgumentNullException`(실측).
 16. **해제 완료를 알 수 없음**: `Release()`·씬 언로드 완료 이벤트 후에도 실제 해제는 1프레임 뒤. 참조 수 조회 API를 찾지 못함(실측).
 17. **씬에는 상태 필드·참조 카운트 없음**: Additive 중복 로드 방지가 개발자 몫(문서, 실측).
@@ -755,7 +786,9 @@ flowchart LR
 | 아카이브 옵션(`content0.archive`)의 크기·로딩 속도 차이 | 미측정 |
 | ~~`Loadable<Material>`로 로드한 머티리얼과 씬의 같은 머티리얼 공유 여부~~ | **해결(CD2)**: 같은 객체 |
 | ~~`Resources.UnloadUnusedAssets()`가 콘텐츠 에셋에 영향을 주는지~~ | **해결(CD1)**: 핸들이 잡은 에셋은 내리지 않음 |
-| NoReport Player에서 APV 간접 조명이 실제로 깨져 보이는지 | 화면 비교 미실측 |
+| NoReport Player에서 APV 간접 조명이 실제로 깨져 보이는지 | CD5: 이 프로젝트는 APV 미사용(`m_LightProbeSystem: 0`)이라 차이는 잡음 수준, 판단 불가. APV를 켜고 베이크한 뒤 재측정 필요 |
+| ~~E1′에서 분홍색이 아니라 사라진 이유~~ | **해결(CD6)**: GPU Resident Drawer 켬 → 사라짐, 끔 → 마젠타 |
+| GRD 켠 Player가 시작 직후 가끔 멈추는 원인 | 미확인 (3회 관찰, 재실행 시 정상) |
 | `Shader.Find`가 콘텐츠 셰이더를 찾는지 | 미확인 |
 | 콘텐츠만 다시 빌드해서 Player의 StreamingAssets만 교체하는 방식 | 미확인 |
 | 모바일 `persistentDataPath`에서 등록 가능 여부 | 미확인 |

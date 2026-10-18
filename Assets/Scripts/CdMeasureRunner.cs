@@ -1,9 +1,12 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Unity.Loading;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 
 namespace ContentsDirectories
@@ -21,6 +24,13 @@ namespace ContentsDirectories
                 return;
             foreach (var b in FindObjectsByType<ContentBootstrap>(FindObjectsSortMode.None))
                 b.enabled = false;
+
+            // CD6: -grd off 이면 첫 렌더 전에 GPU Resident Drawer를 끈다
+            var urp = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
+            if (urp != null && Arg("-grd") == "off")
+                urp.gpuResidentDrawerMode = GPUResidentDrawerMode.Disabled;
+            Log($"pipeline={(urp != null ? urp.name : "null")} gpuResidentDrawerMode={(urp != null ? urp.gpuResidentDrawerMode.ToString() : "-")}");
+
             new GameObject("CdMeasureRunner").AddComponent<CdMeasureRunner>();
         }
 
@@ -31,6 +41,16 @@ namespace ContentsDirectories
             m_Root = ContentLoadManager.GetRootAssets<ContentPackRootAsset>()[0];
             yield return Frames(2);
             Log($"baseline {Snap()}");
+
+            if (Arg("-cd56") != null)
+            {
+                yield return Cd6();
+                yield return Cd5();
+                m_Dirs.UnregisterAll();
+                Log("done");
+                Application.Quit();
+                yield break;
+            }
 
             yield return Cd1();
             yield return Cd2();
@@ -120,6 +140,76 @@ namespace ContentsDirectories
             yield return null;
             m_Root.bonusPrefab.Release();
             yield return Frames(2);
+        }
+
+        // CD6: E1′(인스턴스가 살아 있는데 핸들 Release)일 때 화면에 어떻게 보이는가. GRD 켜짐/꺼짐 비교용
+        IEnumerator Cd6()
+        {
+            var cam = Camera.main;
+            var inst = Instantiate(m_Root.bonusPrefab.Load(), cam.transform.position + cam.transform.forward * 3f, Quaternion.identity);
+            yield return Frames(5);
+            yield return Shot("CD6_before", cam, inst.transform.position);
+            m_Root.bonusPrefab.Release();
+            yield return Frames(5);
+            var r = inst.GetComponent<Renderer>();
+            Log($"CD6 Release 후 sharedMaterial==null:{r.sharedMaterial == null} renderer.enabled:{r.enabled} {Snap()}");
+            yield return Shot("CD6_after", cam, inst.transform.position);
+            Destroy(inst);
+            yield return Frames(2);
+        }
+
+        // CD5: InDoor 씬을 씬 자체 카메라로 찍는다(Normal / NoReport 비교용)
+        IEnumerator Cd5()
+        {
+            Scene scene = default;
+            yield return LoadScene(s => scene = s);
+            var sampleCam = Camera.main;
+            Camera sceneCam = scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<Camera>(true)).FirstOrDefault();
+            if (sceneCam != null && sampleCam != null && sampleCam != sceneCam)
+                sampleCam.gameObject.SetActive(false);
+            int missing = scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<MonoBehaviour>(true)).Count(m => m == null);
+            var compNames = scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<Component>(true)).Where(c => c != null).Select(c => c.GetType().Name).Distinct().OrderBy(n => n);
+            Log($"CD5 sceneCam={(sceneCam != null ? sceneCam.name : "없음")} missingScripts={missing} types=[{string.Join(",", compNames)}]");
+            yield return Frames(30); // 조명·프로브 적용 대기
+            yield return Shot("CD5_indoor", sceneCam != null ? sceneCam : sampleCam, null);
+            if (sampleCam != null) sampleCam.gameObject.SetActive(true);
+            yield return UnloadScene(scene);
+        }
+
+        // 화면 캡처. world가 있으면 그 지점 픽셀 색, 없으면 전체 평균 밝기를 기록하고 -shotdir에 PNG 저장
+        IEnumerator Shot(string label, Camera cam, Vector3? world)
+        {
+            yield return new WaitForEndOfFrame();
+            var tex = ScreenCapture.CaptureScreenshotAsTexture();
+            string info;
+            if (world.HasValue)
+            {
+                var sp = cam.WorldToScreenPoint(world.Value);
+                Color32 c = tex.GetPixel(Mathf.Clamp((int)sp.x, 0, tex.width - 1), Mathf.Clamp((int)sp.y, 0, tex.height - 1));
+                info = $"center=({(int)sp.x},{(int)sp.y}) rgb=({c.r},{c.g},{c.b})";
+            }
+            else
+            {
+                var px = tex.GetPixels32();
+                double lum = px.Average(p => 0.2126 * p.r + 0.7152 * p.g + 0.0722 * p.b);
+                info = $"meanLuma={lum:F2}";
+            }
+            string dir = Arg("-shotdir");
+            if (dir != null)
+            {
+                Directory.CreateDirectory(dir);
+                File.WriteAllBytes(Path.Combine(dir, $"{label}_{Arg("-tag") ?? "run"}.png"), tex.EncodeToPNG());
+            }
+            Log($"{label} {tex.width}x{tex.height} {info}");
+            Destroy(tex);
+        }
+
+        static string Arg(string name)
+        {
+            var a = Environment.GetCommandLineArgs();
+            int i = Array.IndexOf(a, name);
+            if (i < 0) return null;
+            return i + 1 < a.Length && !a[i + 1].StartsWith("-") ? a[i + 1] : "";
         }
 
         IEnumerator LoadScene(Action<Scene> done)
